@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard - Control de Proyectos API</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+  <style>
+    .tab-active { border-bottom: 3px solid #2563eb; color: #2563eb; font-weight: 600; }
+    .fade-in { animation: fadeIn 0.4s ease-in-out; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+  </style>
+</head>
+<body class="bg-gray-100 min-h-screen font-sans">
+
+  <!-- HEADER -->
+  <header class="bg-gradient-to-r from-blue-800 to-blue-900 text-white shadow-lg">
+    <div class="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center flex-wrap gap-4">
+      <div>
+        <h1 class="text-2xl font-bold"><i class="fas fa-oil-can mr-2"></i>Sistema de Control de Proyectos</h1>
+        <p class="text-blue-200 text-sm">Mantenimiento Tanques API</p>
+      </div>
+      <div class="text-right flex items-center gap-4">
+        <a href="reporte.html" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg font-bold shadow-md transition transform hover:scale-105 flex items-center gap-2">
+          <i class="fas fa-clipboard-check"></i> 📝 Nuevo Reporte Diario
+        </a>
+        <a href="admin.html" class="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded-lg font-bold shadow-md transition flex items-center gap-2">
+          <i class="fas fa-user-shield"></i> Admin
+        </a>
+        <div>
+          <p class="font-semibold">Carlos Ramírez</p>
+          <p class="text-blue-200 text-sm">Supervisor de Campo</p>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- SELECTOR DE FRENTE -->
+  <div class="bg-white border-b shadow-sm">
+    <div class="max-w-7xl mx-auto px-6 py-3 flex items-center gap-4 flex-wrap">
+      <label class="font-semibold text-gray-700">Proyecto:</label>
+      <select id="selectProyecto" class="border rounded px-3 py-2 focus:outline-none focus:border-blue-600">
+        <option value="">Cargando proyectos...</option>
+      </select>
+      <label class="font-semibold text-gray-700">Frente:</label>
+      <select id="selectFrente" class="border rounded px-3 py-2 focus:outline-none focus:border-blue-600">
+        <option value="">Seleccione proyecto primero...</option>
+      </select>
+      <button onclick="cargarSeguimiento()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded font-semibold transition">
+        <i class="fas fa-sync-alt mr-1"></i> Actualizar
+      </button>
+      <span class="text-sm text-gray-500 ml-auto">
+        <i class="fas fa-calendar-alt mr-1"></i> Fecha de corte: <strong id="fechaCorte"></strong>
+      </span>
+    </div>
+  </div>
+
+  <!-- TABS -->
+  <nav class="bg-white shadow-sm border-b">
+    <div class="max-w-7xl mx-auto px-6 flex space-x-8 overflow-x-auto">
+      <button onclick="cambiarTab('dashboard')" id="tab-dashboard" class="py-4 px-2 tab-active whitespace-nowrap"><i class="fas fa-chart-line mr-1"></i> Dashboard</button>
+      <button onclick="cambiarTab('actividades')" id="tab-actividades" class="py-4 px-2 text-gray-600 hover:text-blue-600 whitespace-nowrap"><i class="fas fa-list mr-1"></i> Actividades PDT</button>
+      <button onclick="cambiarTab('informes')" id="tab-informes" class="py-4 px-2 text-gray-600 hover:text-blue-600 whitespace-nowrap"><i class="fas fa-file-alt mr-1"></i> Informes</button>
+    </div>
+  </nav>
+
+  <main class="max-w-7xl mx-auto px-6 py-6">
+    
+    <!-- VISTA: DASHBOARD -->
+    <div id="vista-dashboard" class="fade-in">
+      
+      <!-- LOADER -->
+      <div id="loader" class="hidden text-center py-12">
+        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+        <p class="text-gray-600">Calculando seguimiento...</p>
+      </div>
+      
+      <!-- CONTENIDO -->
+      <div id="contenido-dashboard">
+        <!-- KPIs -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <div class="bg-white rounded-lg shadow p-4 border-l-4 border-blue-500">
+            <p class="text-gray-500 text-sm">Avance Ponderado</p>
+            <p class="text-3xl font-bold text-blue-700" id="kpi-avance">--</p>
+            <p class="text-xs text-gray-400">Plan: <span id="kpi-plan">--</span></p>
+          </div>
+          <div class="bg-white rounded-lg shadow p-4 border-l-4 border-green-500">
+            <p class="text-gray-500 text-sm">Actividades del Frente</p>
+            <p class="text-3xl font-bold text-green-700" id="kpi-total">--</p>
+            <p class="text-xs text-gray-400">En curso: <span id="kpi-encurso">--</span></p>
+          </div>
+          <div class="bg-white rounded-lg shadow p-4 border-l-4 border-yellow-500">
+            <p class="text-gray-500 text-sm">Finalizadas</p>
+            <p class="text-3xl font-bold text-yellow-700" id="kpi-finalizadas">--</p>
+            <p class="text-xs text-gray-400">de <span id="kpi-total2">--</span> actividades</p>
+          </div>
+          <div class="bg-white rounded-lg shadow p-4 border-l-4 border-red-500 cursor-pointer hover:bg-red-50 transition" onclick="cambiarTab('actividades')">
+            <p class="text-gray-500 text-sm">Alertas Activas</p>
+            <p class="text-3xl font-bold text-red-700" id="kpi-alertas">--</p>
+            <p class="text-xs text-gray-400">Click para ver detalles</p>
+          </div>
+        </div>
+
+        <!-- ALERTAS -->
+        <section class="bg-white rounded-lg shadow mb-6">
+          <div class="bg-red-50 border-b border-red-200 px-5 py-3 flex items-center">
+            <span class="text-red-600 text-xl mr-2"><i class="fas fa-exclamation-triangle"></i></span>
+            <h2 class="text-lg font-bold text-red-800">Alertas del Sistema</h2>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead class="bg-gray-50 text-gray-700">
+                <tr>
+                  <th class="px-4 py-2 text-left">Tipo</th>
+                  <th class="px-4 py-2 text-left">Código PDT</th>
+                  <th class="px-4 py-2 text-left">Actividad</th>
+                  <th class="px-4 py-2 text-left">Detalle</th>
+                  <th class="px-4 py-2 text-center">Valor</th>
+                </tr>
+              </thead>
+              <tbody id="tabla-alertas">
+                <tr><td colspan="5" class="px-4 py-4 text-center text-gray-500">Seleccione un proyecto y frente para ver alertas</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- RESUMEN DE ESTADOS -->
+        <section class="bg-white rounded-lg shadow">
+          <div class="bg-blue-50 border-b border-blue-200 px-5 py-3">
+            <h2 class="text-lg font-bold text-blue-800"><i class="fas fa-chart-pie mr-2"></i>Resumen de Estados</h2>
+          </div>
+          <div class="p-5 grid grid-cols-2 md:grid-cols-5 gap-4" id="resumen-estados">
+            <div class="text-center p-3 bg-gray-50 rounded">
+              <p class="text-2xl font-bold text-gray-700" id="estado-pendientes">--</p>
+              <p class="text-xs text-gray-500">Pendientes</p>
+            </div>
+            <div class="text-center p-3 bg-blue-50 rounded">
+              <p class="text-2xl font-bold text-blue-700" id="estado-encurso">--</p>
+              <p class="text-xs text-gray-500">En Curso</p>
+            </div>
+            <div class="text-center p-3 bg-green-50 rounded">
+              <p class="text-2xl font-bold text-green-700" id="estado-finalizadas">--</p>
+              <p class="text-xs text-gray-500">Finalizadas</p>
+            </div>
+            <div class="text-center p-3 bg-red-50 rounded">
+              <p class="text-2xl font-bold text-red-700" id="estado-retrasadas">--</p>
+              <p class="text-xs text-gray-500">Retrasadas</p>
+            </div>
+            <div class="text-center p-3 bg-yellow-50 rounded">
+              <p class="text-2xl font-bold text-yellow-700" id="estado-adelantadas">--</p>
+              <p class="text-xs text-gray-500">Adelantadas</p>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <!-- VISTA: ACTIVIDADES -->
+    <div id="vista-actividades" class="hidden fade-in">
+      <div class="bg-white rounded-lg shadow p-6">
+        <h2 class="text-xl font-bold text-gray-700 mb-4"><i class="fas fa-list text-blue-600 mr-2"></i>Listado Completo de Actividades</h2>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm border">
+            <thead class="bg-gray-100 text-gray-700">
+              <tr>
+                <th class="px-3 py-2 text-left border">Código</th>
+                <th class="px-3 py-2 text-left border">Actividad</th>
+                <th class="px-3 py-2 text-center border">Cant. Plan</th>
+                <th class="px-3 py-2 text-center border">Cant. Real</th>
+                <th class="px-3 py-2 text-center border">% Avance</th>
+                <th class="px-3 py-2 text-center border">Inicio Real</th>
+                <th class="px-3 py-2 text-center border">Duración Real</th>
+                <th class="px-3 py-2 text-center border">Desviación</th>
+                <th class="px-3 py-2 text-center border">Estado</th>
+              </tr>
+            </thead>
+            <tbody id="tabla-actividades">
+              <tr><td colspan="9" class="px-4 py-4 text-center text-gray-500">Seleccione un frente para ver actividades</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- VISTA: INFORMES -->
+    <div id="vista-informes" class="hidden fade-in">
+      <div class="bg-white rounded-lg shadow p-6 text-center">
+        <h2 class="text-xl font-bold text-gray-700 mb-2">Informes y Curva S</h2>
+        <p class="text-gray-500">Próximamente: Gráficos de avance planificado vs real y exportación a PDF/Excel.</p>
+      </div>
+    </div>
+
+  </main>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+    import { obtenerSeguimientoCompleto } from "./seguimiento.js";
+
+    // ⚠️ REEMPLAZA CON TUS DATOS DE FIREBASE
+    const firebaseConfig = {
+  apiKey: "AIzaSyDkxQ7H2ouGb7KTAS5ercSkCHx8quqA3yo",
+  authDomain: "controlproyectos-f080a.firebaseapp.com",
+  projectId: "controlproyectos-f080a",
+  storageBucket: "controlproyectos-f080a.firebasestorage.app",
+  messagingSenderId: "532250557433",
+  appId: "1:532250557433:web:03e5eb48da06f282575b28"
+};
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    // Mostrar fecha de corte
+    document.getElementById('fechaCorte').textContent = new Date().toLocaleDateString('es-CO');
+
+    // ==========================================
+    // CARGAR PROYECTOS Y FRENTES EN SELECTORES
+    // ==========================================
+    async function cargarProyectosEnSelectores() {
+      try {
+        const proyectosSnap = await getDocs(collection(db, "proyectos"));
+        const selectProy = document.getElementById('selectProyecto');
+        selectProy.innerHTML = '<option value="">Seleccione un proyecto...</option>';
+        
+        proyectosSnap.forEach(doc => {
+          const p = doc.data();
+          const option = document.createElement('option');
+          option.value = doc.id;
+          option.textContent = `${p.nombre} (${p.codigo})`;
+          selectProy.appendChild(option);
+        });
+
+        // Cuando cambie el proyecto, cargar frentes
+        selectProy.addEventListener('change', cargarFrentes);
+      } catch (error) {
+        console.error('Error al cargar proyectos:', error);
+      }
+    }
+
+    async function cargarFrentes() {
+      const proyectoId = document.getElementById('selectProyecto').value;
+      const selectFrente = document.getElementById('selectFrente');
+      selectFrente.innerHTML = '<option value="">Cargando frentes...</option>';
+      
+      if (!proyectoId) {
+        selectFrente.innerHTML = '<option value="">Seleccione proyecto primero...</option>';
+        return;
+      }
+
+      try {
+        const pdtsSnap = await getDocs(collection(db, "pdts"));
+        const frentes = new Set();
+        pdtsSnap.forEach(doc => {
+          const data = doc.data();
+          if (data.proyectoId === proyectoId) {
+            frentes.add(data.frente);
+          }
+        });
+
+        selectFrente.innerHTML = '<option value="">Seleccione un frente...</option>';
+        frentes.forEach(frente => {
+          const option = document.createElement('option');
+          option.value = frente;
+          option.textContent = frente;
+          selectFrente.appendChild(option);
+        });
+      } catch (error) {
+        console.error('Error al cargar frentes:', error);
+      }
+    }
+
+    // ==========================================
+    // CARGAR Y MOSTRAR SEGUIMIENTO
+    // ==========================================
+    window.cargarSeguimiento = async function() {
+      const proyectoId = document.getElementById('selectProyecto').value;
+      const frente = document.getElementById('selectFrente').value;
+
+      if (!proyectoId || !frente) {
+        alert('❌ Debe seleccionar un proyecto y un frente');
+        return;
+      }
+
+      document.getElementById('loader').classList.remove('hidden');
+      document.getElementById('contenido-dashboard').style.opacity = '0.5';
+
+      try {
+        const seguimiento = await obtenerSeguimientoCompleto(db, proyectoId, frente);
+        mostrarSeguimiento(seguimiento);
+      } catch (error) {
+        alert('❌ Error: ' + error.message);
+        console.error(error);
+      } finally {
+        document.getElementById('loader').classList.add('hidden');
+        document.getElementById('contenido-dashboard').style.opacity = '1';
+      }
+    };
+
+    function mostrarSeguimiento(seg) {
+      // KPIs
+      document.getElementById('kpi-avance').textContent = seg.avancePonderado + '%';
+      document.getElementById('kpi-plan').textContent = seg.avancePlanPonderado + '%';
+      document.getElementById('kpi-total').textContent = seg.resumenEstados.total;
+      document.getElementById('kpi-encurso').textContent = seg.resumenEstados.enCurso;
+      document.getElementById('kpi-finalizadas').textContent = seg.resumenEstados.finalizadas;
+      document.getElementById('kpi-total2').textContent = seg.resumenEstados.total;
+      document.getElementById('kpi-alertas').textContent = seg.alertas.length;
+
+      // Resumen de estados
+      document.getElementById('estado-pendientes').textContent = seg.resumenEstados.pendientes;
+      document.getElementById('estado-encurso').textContent = seg.resumenEstados.enCurso;
+      document.getElementById('estado-finalizadas').textContent = seg.resumenEstados.finalizadas;
+      document.getElementById('estado-retrasadas').textContent = seg.resumenEstados.retrasadas;
+      document.getElementById('estado-adelantadas').textContent = seg.resumenEstados.adelantadas;
+
+      // Alertas
+      const tbodyAlertas = document.getElementById('tabla-alertas');
+      if (seg.alertas.length === 0) {
+        tbodyAlertas.innerHTML = '<tr><td colspan="5" class="px-4 py-4 text-center text-green-600">✅ Sin alertas. Todo en orden.</td></tr>';
+      } else {
+        tbodyAlertas.innerHTML = seg.alertas.map(a => {
+          const colorClass = a.prioridad === 'alta' ? 'bg-red-100 text-red-700' : 'bg-orange-100 text-orange-700';
+          return `
+            <tr class="hover:bg-gray-50 border-b">
+              <td class="px-4 py-2"><span class="${colorClass} px-2 py-1 rounded text-xs font-semibold">${a.tipo}</span></td>
+              <td class="px-4 py-2 font-mono text-xs">${a.codigo}</td>
+              <td class="px-4 py-2 font-medium">${a.actividad}</td>
+              <td class="px-4 py-2 text-gray-600">${a.detalle}</td>
+              <td class="px-4 py-2 text-center font-bold">${a.valor}</td>
+            </tr>
+          `;
+        }).join('');
+      }
+
+      // Tabla de actividades
+      const tbodyActividades = document.getElementById('tabla-actividades');
+      tbodyActividades.innerHTML = seg.actividades.map(a => {
+        const colorDesv = a.desviacion > 5 ? 'text-red-600' : (a.desviacion < -5 ? 'text-green-600' : 'text-gray-600');
+        const colorEstado = {
+          'Finalizada': 'bg-green-100 text-green-700',
+          'En Curso': 'bg-blue-100 text-blue-700',
+          'Pendiente': 'bg-gray-100 text-gray-700',
+          'Retrasada': 'bg-red-100 text-red-700',
+          'Retrasada (sin iniciar)': 'bg-red-100 text-red-700',
+          'Adelantada': 'bg-yellow-100 text-yellow-700'
+        }[a.estado] || 'bg-gray-100 text-gray-700';
+        
+        return `
+          <tr class="hover:bg-gray-50 border-b">
+            <td class="px-3 py-2 border font-mono text-xs">${a.activityId}</td>
+            <td class="px-3 py-2 border">${a.activityName}</td>
+            <td class="px-3 py-2 border text-center">${a.cantidadPlan}</td>
+            <td class="px-3 py-2 border text-center font-semibold">${a.cantidadAcumulada}</td>
+            <td class="px-3 py-2 border text-center">
+              <div class="flex items-center justify-center">
+                <div class="w-16 bg-gray-200 rounded-full h-2 mr-2">
+                  <div class="bg-blue-500 h-2 rounded-full" style="width: ${Math.min(a.porcentajeAvanceReal, 100)}%"></div>
+                </div>
+                <span class="text-xs">${a.porcentajeAvanceReal}%</span>
+              </div>
+            </td>
+            <td class="px-3 py-2 border text-center text-xs">${a.fechaInicioReal || '-'}</td>
+            <td class="px-3 py-2 border text-center">${a.duracionReal} / ${a.duracionPlan} días</td>
+            <td class="px-3 py-2 border text-center ${colorDesv} font-bold">${a.desviacion > 0 ? '+' : ''}${a.desviacion}%</td>
+            <td class="px-3 py-2 border text-center"><span class="${colorEstado} px-2 py-1 rounded text-xs font-semibold">${a.estado}</span></td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    // ==========================================
+    // NAVEGACIÓN DE TABS
+    // ==========================================
+    window.cambiarTab = function(tabName) {
+      ['dashboard', 'actividades', 'informes'].forEach(t => {
+        document.getElementById(`vista-${t}`).classList.add('hidden');
+        document.getElementById(`tab-${t}`).classList.remove('tab-active');
+        document.getElementById(`tab-${t}`).classList.add('text-gray-600');
+      });
+      document.getElementById(`vista-${tabName}`).classList.remove('hidden');
+      document.getElementById(`tab-${tabName}`).classList.add('tab-active');
+      document.getElementById(`tab-${tabName}`).classList.remove('text-gray-600');
+    };
+
+    // Inicializar
+    cargarProyectosEnSelectores();
+  </script>
+</body>
+</html>

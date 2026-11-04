@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Panel Administrador - Control de Proyectos</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+  <style>
+    .fade-in { animation: fadeIn 0.4s ease-in-out; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+
+  <!-- HEADER -->
+  <header class="bg-gradient-to-r from-purple-800 to-purple-900 text-white shadow-lg">
+    <div class="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
+      <div>
+        <h1 class="text-2xl font-bold"><i class="fas fa-user-shield mr-2"></i>Panel de Administración</h1>
+        <p class="text-purple-200 text-sm">Gestión de Proyectos y PDTs</p>
+      </div>
+      <div class="flex items-center gap-4">
+        <a href="index.html" class="bg-white text-purple-800 px-4 py-2 rounded font-semibold hover:bg-gray-100 transition">
+          <i class="fas fa-arrow-left mr-1"></i> Ir al Dashboard
+        </a>
+        <div class="text-right">
+          <p class="font-semibold" id="adminName">Administrador</p>
+          <p class="text-purple-200 text-sm">Programador</p>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-6 py-6">
+
+    <!-- TABS -->
+    <nav class="bg-white shadow-sm border-b mb-6 rounded-t-lg">
+      <div class="flex space-x-8 px-6">
+        <button onclick="cambiarTab('proyectos')" id="tab-proyectos" class="py-4 px-2 border-b-3 border-purple-600 text-purple-600 font-semibold">
+          <i class="fas fa-project-diagram mr-1"></i> Proyectos
+        </button>
+        <button onclick="cambiarTab('pdts')" id="tab-pdts" class="py-4 px-2 text-gray-600 hover:text-purple-600">
+          <i class="fas fa-file-excel mr-1"></i> PDTs Cargados
+        </button>
+      </div>
+    </nav>
+
+    <!-- VISTA: PROYECTOS -->
+    <div id="vista-proyectos" class="fade-in">
+      
+      <!-- CREAR PROYECTO -->
+      <div class="bg-white rounded-lg shadow p-6 mb-6">
+        <h2 class="text-xl font-bold text-gray-700 mb-4"><i class="fas fa-plus-circle text-purple-600 mr-2"></i>Crear Nuevo Proyecto</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-semibold text-gray-600 mb-2">Nombre del Proyecto</label>
+            <input type="text" id="nombreProyecto" placeholder="Ej: Mantenimiento Tanques API 2026" class="w-full border rounded px-3 py-2 focus:outline-none focus:border-purple-600">
+          </div>
+          <div>
+            <label class="block text-sm font-semibold text-gray-600 mb-2">Código del Contrato</label>
+            <input type="text" id="codigoContrato" placeholder="Ej: CW300828" class="w-full border rounded px-3 py-2 focus:outline-none focus:border-purple-600">
+          </div>
+          <div class="md:col-span-2">
+            <label class="block text-sm font-semibold text-gray-600 mb-2">Descripción</label>
+            <textarea id="descripcionProyecto" rows="2" placeholder="Descripción del proyecto..." class="w-full border rounded px-3 py-2 focus:outline-none focus:border-purple-600"></textarea>
+          </div>
+        </div>
+        <button onclick="crearProyecto()" class="mt-4 bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded font-semibold transition">
+          <i class="fas fa-save mr-1"></i> Crear Proyecto
+        </button>
+      </div>
+
+      <!-- LISTA DE PROYECTOS -->
+      <div class="bg-white rounded-lg shadow p-6">
+        <h2 class="text-xl font-bold text-gray-700 mb-4"><i class="fas fa-list text-purple-600 mr-2"></i>Proyectos Existentes</h2>
+        <div id="listaProyectos" class="space-y-3">
+          <p class="text-gray-500 text-center py-4">Cargando proyectos...</p>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- VISTA: PDTs -->
+    <div id="vista-pdts" class="hidden fade-in">
+      
+      <!-- SUBIR PDT -->
+      <div class="bg-white rounded-lg shadow p-6 mb-6">
+        <h2 class="text-xl font-bold text-gray-700 mb-4"><i class="fas fa-upload text-green-600 mr-2"></i>Subir PDT Línea Base desde Excel (Primavera P6)</h2>
+        
+        <div class="bg-blue-50 border border-blue-200 rounded p-4 mb-4">
+          <p class="text-sm text-blue-800">
+            <i class="fas fa-info-circle mr-1"></i>
+            <strong>Importante:</strong> El archivo Excel debe contener la <strong>Vista Planeación</strong> con las siguientes columnas:
+            <br>• Activity ID, Activity Name, Original Duration, Budgeted Labor Units, Start, Finish, Calendar, Predecessors, Successors, Total Float, Estado actividad
+            <br><br>
+            <strong>Nota:</strong> Los datos de seguimiento (% avance real, fechas reales, desviaciones, etc.) serán calculados automáticamente por el sistema en base a esta línea base y los reportes diarios que ingresen los supervisores.
+          </p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+          <div>
+            <label class="block text-sm font-semibold text-gray-600 mb-2">Seleccionar Proyecto</label>
+            <select id="selectProyecto" class="w-full border rounded px-3 py-2 focus:outline-none focus:border-green-600">
+              <option value="">Seleccione un proyecto...</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-semibold text-gray-600 mb-2">Frente de Trabajo</label>
+            <input type="text" id="frenteTrabajo" placeholder="Ej: Tanque TK-01" class="w-full border rounded px-3 py-2 focus:outline-none focus:border-green-600">
+          </div>
+          <div>
+            <label class="block text-sm font-semibold text-gray-600 mb-2">Versión del PDT (Línea Base)</label>
+            <input type="text" id="versionPDT" placeholder="Ej: lb1, lb2, rev01" class="w-full border rounded px-3 py-2 focus:outline-none focus:border-green-600">
+          </div>
+          <div>
+            <label class="block text-sm font-semibold text-gray-600 mb-2">Archivo Excel (.xlsx)</label>
+            <input type="file" id="archivoExcel" accept=".xlsx,.xls" class="w-full border rounded px-3 py-2">
+          </div>
+        </div>
+
+        <button onclick="procesarExcel()" class="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded font-semibold transition">
+          <i class="fas fa-file-excel mr-1"></i> Procesar y Guardar PDT Línea Base
+        </button>
+
+        <div id="resultadoProcesamiento" class="mt-4 hidden">
+          <div class="bg-blue-50 border border-blue-200 rounded p-4">
+            <h3 class="font-bold text-blue-800 mb-2">📊 Resumen del Procesamiento</h3>
+            <div id="resumenDatos"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- LISTA DE PDTs CARGADOS -->
+      <div class="bg-white rounded-lg shadow p-6">
+        <h2 class="text-xl font-bold text-gray-700 mb-4"><i class="fas fa-database text-blue-600 mr-2"></i>PDTs Línea Base Cargados</h2>
+        <div id="listaPDTs" class="space-y-3">
+          <p class="text-gray-500 text-center py-4">Cargando PDTs...</p>
+        </div>
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- LOADER -->
+  <div id="loader" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+    <div class="bg-white rounded-lg p-8 text-center">
+      <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
+      <p class="text-gray-700 font-semibold">Procesando...</p>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getFirestore, collection, addDoc, getDocs, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+    // ⚠️ REEMPLAZA CON TUS DATOS DE FIREBASE
+    const firebaseConfig = {
+  apiKey: "AIzaSyDkxQ7H2ouGb7KTAS5ercSkCHx8quqA3yo",
+  authDomain: "controlproyectos-f080a.firebaseapp.com",
+  projectId: "controlproyectos-f080a",
+  storageBucket: "controlproyectos-f080a.firebasestorage.app",
+  messagingSenderId: "532250557433",
+  appId: "1:532250557433:web:03e5eb48da06f282575b28"
+};
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    // ==========================================
+    // NAVEGACIÓN ENTRE TABS
+    // ==========================================
+    window.cambiarTab = function(tab) {
+      document.getElementById('vista-proyectos').classList.add('hidden');
+      document.getElementById('vista-pdts').classList.add('hidden');
+      document.getElementById('tab-proyectos').classList.remove('border-purple-600', 'text-purple-600', 'font-semibold');
+      document.getElementById('tab-proyectos').classList.add('text-gray-600');
+      document.getElementById('tab-pdts').classList.remove('border-purple-600', 'text-purple-600', 'font-semibold');
+      document.getElementById('tab-pdts').classList.add('text-gray-600');
+
+      document.getElementById(`vista-${tab}`).classList.remove('hidden');
+      document.getElementById(`tab-${tab}`).classList.add('border-purple-600', 'text-purple-600', 'font-semibold');
+      document.getElementById(`tab-${tab}`).classList.remove('text-gray-600');
+
+      if (tab === 'pdts') cargarProyectosEnSelect();
+    };
+
+    // ==========================================
+    // CREAR PROYECTO
+    // ==========================================
+    window.crearProyecto = async function() {
+      const nombre = document.getElementById('nombreProyecto').value.trim();
+      const codigo = document.getElementById('codigoContrato').value.trim();
+      const descripcion = document.getElementById('descripcionProyecto').value.trim();
+
+      if (!nombre || !codigo) {
+        alert('❌ Debe ingresar el nombre y código del contrato');
+        return;
+      }
+
+      document.getElementById('loader').classList.remove('hidden');
+      document.getElementById('loader').classList.add('flex');
+
+      try {
+        await addDoc(collection(db, "proyectos"), {
+          nombre, codigo, descripcion,
+          fechaCreacion: new Date().toISOString()
+        });
+
+        alert('✅ Proyecto creado exitosamente');
+        document.getElementById('nombreProyecto').value = '';
+        document.getElementById('codigoContrato').value = '';
+        document.getElementById('descripcionProyecto').value = '';
+        cargarProyectos();
+
+      } catch (error) {
+        alert('❌ Error: ' + error.message);
+      } finally {
+        document.getElementById('loader').classList.add('hidden');
+        document.getElementById('loader').classList.remove('flex');
+      }
+    };
+
+    // ==========================================
+    // CARGAR LISTA DE PROYECTOS
+    // ==========================================
+    async function cargarProyectos() {
+      const cont = document.getElementById('listaProyectos');
+      try {
+        const querySnapshot = await getDocs(collection(db, "proyectos"));
+        if (querySnapshot.empty) {
+          cont.innerHTML = '<p class="text-gray-500 text-center py-4">No hay proyectos creados aún</p>';
+          return;
+        }
+
+        cont.innerHTML = '';
+        querySnapshot.forEach(docSnap => {
+          const p = docSnap.data();
+          const div = document.createElement('div');
+          div.className = 'border rounded-lg p-4 hover:bg-gray-50 transition';
+          div.innerHTML = `
+            <div class="flex justify-between items-start">
+              <div>
+                <h3 class="font-bold text-lg text-gray-800">${p.nombre}</h3>
+                <p class="text-sm text-gray-600">Código: <span class="font-semibold">${p.codigo}</span></p>
+                <p class="text-sm text-gray-500 mt-1">${p.descripcion || 'Sin descripción'}</p>
+              </div>
+              <span class="text-xs text-gray-400">${new Date(p.fechaCreacion).toLocaleDateString('es-CO')}</span>
+            </div>
+          `;
+          cont.appendChild(div);
+        });
+
+      } catch (error) {
+        cont.innerHTML = '<p class="text-red-500 text-center py-4">Error al cargar proyectos</p>';
+      }
+    }
+
+    // ==========================================
+    // CARGAR PROYECTOS EN EL SELECT (Para subir PDT)
+    // ==========================================
+    async function cargarProyectosEnSelect() {
+      const select = document.getElementById('selectProyecto');
+      try {
+        const querySnapshot = await getDocs(collection(db, "proyectos"));
+        select.innerHTML = '<option value="">Seleccione un proyecto...</option>';
+        querySnapshot.forEach(docSnap => {
+          const p = docSnap.data();
+          const option = document.createElement('option');
+          option.value = docSnap.id;
+          option.textContent = `${p.nombre} (${p.codigo})`;
+          select.appendChild(option);
+        });
+      } catch (error) {
+        console.error('Error al cargar proyectos:', error);
+      }
+    }
+
+    // ==========================================
+    // PROCESAR Y GUARDAR PDT LÍNEA BASE (SOLO VISTA PLANEACIÓN)
+    // ==========================================
+    window.procesarExcel = async function() {
+      const proyectoId = document.getElementById('selectProyecto').value;
+      const frente = document.getElementById('frenteTrabajo').value.trim();
+      const version = document.getElementById('versionPDT').value.trim();
+      const archivo = document.getElementById('archivoExcel').files[0];
+
+      if (!proyectoId || !frente || !version || !archivo) {
+        alert('❌ Debe completar todos los campos y seleccionar un archivo Excel');
+        return;
+      }
+
+      document.getElementById('loader').classList.remove('hidden');
+      document.getElementById('loader').classList.add('flex');
+
+      try {
+        // Leer el archivo Excel
+        const data = await archivo.arrayBuffer();
+        const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+        
+        // Procesar la primera hoja (Vista Planeación)
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
+
+        if (jsonData.length === 0) {
+          throw new Error('El archivo Excel está vacío o no tiene el formato correcto');
+        }
+
+        // Procesar cada fila de la Vista Planeación
+        const actividades = [];
+        for (const row of jsonData) {
+          const actividad = {
+            activityId: row['Activity ID'] || row['Activity Id'] || '',
+            activityName: row['Activity Name'] || row['Activity name'] || '',
+            originalDuration: row['Original Duration'] || 0,
+            budgetedLaborUnits: row['Budgeted Labor Units'] || 0,
+            startDate: row['Start'] ? formatearFecha(row['Start']) : '',
+            finishDate: row['Finish'] ? formatearFecha(row['Finish']) : '',
+            calendar: row['Calendar'] || '',
+            predecessors: row['Predecessors'] || '',
+            successors: row['Succesors'] || row['Successors'] || '',
+            totalFloat: row['Total Float'] || 0,
+            estadoActividad: row['Estado actividad'] || row['Estado Actividad'] || ''
+          };
+          actividades.push(actividad);
+        }
+
+        // Guardar el PDT Línea Base en Firestore
+        await addDoc(collection(db, "pdts"), {
+          proyectoId,
+          frente,
+          version,
+          nombreArchivo: archivo.name,
+          totalActividades: actividades.length,
+          actividades, // Esta es la Vista Planeación (Línea Base)
+          fechaCarga: new Date().toISOString(),
+          tipo: 'lineaBase' // Identificador para diferenciar de futuras versiones
+        });
+
+        // Mostrar resumen
+        document.getElementById('resultadoProcesamiento').classList.remove('hidden');
+        document.getElementById('resumenDatos').innerHTML = `
+          <p><strong>Archivo:</strong> ${archivo.name}</p>
+          <p><strong>Frente:</strong> ${frente}</p>
+          <p><strong>Versión (Línea Base):</strong> ${version}</p>
+          <hr class="my-2">
+          <p class="font-bold text-blue-700">📋 Vista Planeación Procesada:</p>
+          <p class="ml-4">Total de actividades: <strong>${actividades.length}</strong></p>
+          <hr class="my-2">
+          <p class="text-sm text-gray-600 mt-2">
+            <i class="fas fa-lightbulb text-yellow-500 mr-1"></i>
+            Los datos de seguimiento (% avance real, fechas reales, desviaciones) serán calculados automáticamente por el sistema en base a esta línea base y los reportes diarios.
+          </p>
+          <p class="text-green-600 font-bold mt-3">✅ PDT Línea Base guardado exitosamente en Firebase</p>
+        `;
+
+        // Limpiar formulario
+        document.getElementById('frenteTrabajo').value = '';
+        document.getElementById('versionPDT').value = '';
+        document.getElementById('archivoExcel').value = '';
+
+        cargarPDTs();
+
+      } catch (error) {
+        alert('❌ Error al procesar el Excel: ' + error.message);
+        console.error(error);
+      } finally {
+        document.getElementById('loader').classList.add('hidden');
+        document.getElementById('loader').classList.remove('flex');
+      }
+    };
+
+    function formatearFecha(fecha) {
+      if (!fecha) return '';
+      if (fecha instanceof Date) {
+        return fecha.toISOString().split('T')[0];
+      }
+      return fecha.toString();
+    }
+
+    // ==========================================
+    // CARGAR LISTA DE PDTs
+    // ==========================================
+    async function cargarPDTs() {
+      const cont = document.getElementById('listaPDTs');
+      try {
+        const querySnapshot = await getDocs(collection(db, "pdts"));
+        if (querySnapshot.empty) {
+          cont.innerHTML = '<p class="text-gray-500 text-center py-4">No hay PDTs cargados aún</p>';
+          return;
+        }
+
+        cont.innerHTML = '';
+        for (const docSnap of querySnapshot.docs) {
+          const p = docSnap.data();
+          
+          // Obtener nombre del proyecto
+          const proyectoDoc = await getDocs(collection(db, "proyectos"));
+          let nombreProyecto = 'Proyecto desconocido';
+          proyectoDoc.forEach(doc => {
+            if (doc.id === p.proyectoId) {
+              nombreProyecto = doc.data().nombre;
+            }
+          });
+
+          const div = document.createElement('div');
+          div.className = 'border rounded-lg p-4 hover:bg-gray-50 transition';
+          div.innerHTML = `
+            <div class="flex justify-between items-start">
+              <div class="flex-1">
+                <h3 class="font-bold text-lg text-gray-800">${nombreProyecto}</h3>
+                <p class="text-sm text-gray-600">Frente: <span class="font-semibold">${p.frente}</span></p>
+                <p class="text-sm text-gray-600">Versión: <span class="font-semibold text-blue-600">${p.version}</span></p>
+                <p class="text-sm text-gray-500 mt-1">Archivo: ${p.nombreArchivo}</p>
+              </div>
+              <div class="text-right">
+                <span class="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-sm font-semibold">
+                  📋 ${p.totalActividades} actividades
+                </span>
+                <p class="text-xs text-gray-400 mt-2">${new Date(p.fechaCarga).toLocaleDateString('es-CO')}</p>
+              </div>
+            </div>
+          `;
+          cont.appendChild(div);
+        }
+
+      } catch (error) {
+        cont.innerHTML = '<p class="text-red-500 text-center py-4">Error al cargar PDTs</p>';
+      }
+    }
+
+    // Inicializar al cargar la página
+    cargarProyectos();
+  </script>
+
+</body>
+</html>
