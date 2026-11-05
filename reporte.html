@@ -973,52 +973,62 @@ function cargarActividadesPendientes(reporte) {
       }
     };
 
-    function cargarTablaDesdeDatos(idTabla, datos, funcionAgregar, esAvanceObra) {
+    // ============================================
+// FUNCIÓN CORREGIDA: Cargar tabla desde datos
+// ============================================
+function cargarTablaDesdeDatos(idTabla, datos, funcionAgregar, esAvanceObra) {
   const tbody = document.querySelector('#' + idTabla + ' tbody');
   tbody.innerHTML = '';
   
-  datos.forEach(rowData => {
+  console.log(`🔄 Cargando ${datos.length} registros en ${idTabla}`);
+  
+  datos.forEach((rowData, index) => {
     funcionAgregar(rowData.finalizada || false);
     const ultimaFila = tbody.lastElementChild;
     
     if (esAvanceObra) {
-      // Mapeo EXPLÍCITO para Avance de Obra
-      if (ultimaFila.querySelector('.chk-finalizada')) 
-        ultimaFila.querySelector('.chk-finalizada').checked = rowData.finalizada || false;
-      if (ultimaFila.querySelector('.pdt-cod')) 
-        ultimaFila.querySelector('.pdt-cod').value = rowData.codigoPDT || 'NA';
+      // Manejar checkbox de finalizada
+      const chkFinalizada = ultimaFila.querySelector('.chk-finalizada');
+      if (chkFinalizada) {
+        chkFinalizada.checked = rowData.finalizada || false;
+      }
       
-      // El turno es un select, buscar la opción correcta
+      // Mapeo EXPLÍCITO por clases CSS
+      const campos = {
+        '.pdt-cod': rowData.codigoPDT || 'NA',
+        '.pdt-desc': rowData.descripcion || '',
+        '.pdt-cont': rowData.cantContractual || '',
+        '.pdt-und': rowData.unidad || '',
+        '.pdt-ant': rowData.cantAnt || 0,
+        '.pdt-dia': rowData.cantDia || 0,
+        '.pdt-acum': rowData.cantAcumulada || 0,
+        '.pdt-porc-dia': rowData.porcDia || '0.00%',
+        '.pdt-porc-acum': rowData.porcAcumulado || '0.00%'
+      };
+      
+      Object.entries(campos).forEach(([selector, valor]) => {
+        const input = ultimaFila.querySelector(selector);
+        if (input) {
+          input.value = valor;
+          console.log(`  📝 ${selector} = ${valor}`);
+        }
+      });
+      
+      // Manejar select de turno
       const selectTurno = ultimaFila.querySelector('select');
-      if (selectTurno) selectTurno.value = rowData.turno || '';
+      if (selectTurno && rowData.turno) {
+        selectTurno.value = rowData.turno;
+        console.log(`  🔄 Turno = ${rowData.turno}`);
+      }
       
-      if (ultimaFila.querySelector('.pdt-desc')) 
-        ultimaFila.querySelector('.pdt-desc').value = rowData.descripcion || '';
-      if (ultimaFila.querySelector('.pdt-cont')) 
-        ultimaFila.querySelector('.pdt-cont').value = rowData.cantContractual || '';
-      if (ultimaFila.querySelector('.pdt-und')) 
-        ultimaFila.querySelector('.pdt-und').value = rowData.unidad || '';
-      if (ultimaFila.querySelector('.pdt-ant')) 
-        ultimaFila.querySelector('.pdt-ant').value = rowData.cantAnt || 0;
-      if (ultimaFila.querySelector('.pdt-dia')) 
-        ultimaFila.querySelector('.pdt-dia').value = rowData.cantDia || 0;
-      if (ultimaFila.querySelector('.pdt-acum')) 
-        ultimaFila.querySelector('.pdt-acum').value = rowData.cantAcumulada || 0;
-      if (ultimaFila.querySelector('.pdt-porc-dia')) 
-        ultimaFila.querySelector('.pdt-porc-dia').value = rowData.porcDia || '0.00%';
-      if (ultimaFila.querySelector('.pdt-porc-acum')) 
-        ultimaFila.querySelector('.pdt-porc-acum').value = rowData.porcAcumulado || '0.00%';
-      
-      // Recalcular para asegurar consistencia
+      // Recalcular acumulados
       const cantDiaInput = ultimaFila.querySelector('.pdt-dia');
-      if (cantDiaInput) window.calcularAcumulado(cantDiaInput);
+      if (cantDiaInput && parseFloat(cantDiaInput.value) > 0) {
+        window.calcularAcumulado(cantDiaInput);
+      }
       
     } else if (idTabla === 'tblAvanceCostos') {
-      // Mapeo EXPLÍCITO para Avance de Costos
-      const inputs = ultimaFila.querySelectorAll('input, select');
-      // inputs[0]: itemCosto, inputs[1]: select turno, inputs[2]: descripcion, 
-      // inputs[3]: cantContractual, inputs[4]: unidad, inputs[5]: cantAnt, 
-      // inputs[6]: cantDia, inputs[7]: cantAcumulada, inputs[8]: porcDia, inputs[9]: porcAcumulado
+      const inputs = ultimaFila.querySelectorAll('input:not([type="checkbox"]), select');
       if (inputs[0]) inputs[0].value = rowData.itemCosto || '';
       if (inputs[1]) inputs[1].value = rowData.turno || '';
       if (inputs[2]) inputs[2].value = rowData.descripcion || '';
@@ -1030,9 +1040,10 @@ function cargarActividadesPendientes(reporte) {
       if (inputs[8]) inputs[8].value = rowData.porcDia || '';
       if (inputs[9]) inputs[9].value = rowData.porcAcumulado || '';
       
-      // Recalcular
       const cantDiaInput = ultimaFila.querySelector('.ac-dia');
-      if (cantDiaInput) window.calcularAcCostos(cantDiaInput);
+      if (cantDiaInput && parseFloat(cantDiaInput.value) > 0) {
+        window.calcularAcCostos(cantDiaInput);
+      }
       
     } else if (idTabla === 'tblProximas24h') {
       const inputs = ultimaFila.querySelectorAll('input, select');
@@ -1060,6 +1071,59 @@ function cargarActividadesPendientes(reporte) {
     }
   });
 }
+
+// ============================================
+// FUNCIÓN CORREGIDA: Recolectar datos de tabla
+// ============================================
+window.recolectarTabla = function(idTabla, campos) {
+  const filas = document.querySelectorAll('#' + idTabla + ' tbody tr');
+  const datos = [];
+  
+  filas.forEach((fila, filaIndex) => {
+    const obj = {};
+    let tieneDatos = false;
+    
+    if (idTabla === 'tblAvanceObra') {
+      // Mapeo EXPLÍCITO para Avance de Obra
+      obj.finalizada = fila.querySelector('.chk-finalizada')?.checked || false;
+      obj.codigoPDT = fila.querySelector('.pdt-cod')?.value || '';
+      
+      const selectTurno = fila.querySelector('select');
+      obj.turno = selectTurno ? selectTurno.value : '';
+      
+      obj.descripcion = fila.querySelector('.pdt-desc')?.value || '';
+      obj.cantContractual = fila.querySelector('.pdt-cont')?.value || '';
+      obj.unidad = fila.querySelector('.pdt-und')?.value || '';
+      obj.cantAnt = fila.querySelector('.pdt-ant')?.value || '0';
+      obj.cantDia = fila.querySelector('.pdt-dia')?.value || '0';
+      obj.cantAcumulada = fila.querySelector('.pdt-acum')?.value || '0';
+      obj.porcDia = fila.querySelector('.pdt-porc-dia')?.value || '0.00%';
+      obj.porcAcumulado = fila.querySelector('.pdt-porc-acum')?.value || '0.00%';
+      
+      // Verificar si tiene datos relevantes
+      if (obj.codigoPDT && obj.codigoPDT !== 'NA' || obj.descripcion) {
+        tieneDatos = true;
+      }
+      
+    } else {
+      // Para otras tablas, usar mapeo por índice
+      const inputs = fila.querySelectorAll('input:not([type="checkbox"]), select');
+      campos.forEach((campo, idx) => {
+        if (idx < inputs.length) {
+          obj[campo] = inputs[idx].value;
+          if (inputs[idx].value && inputs[idx].value.trim() !== '') tieneDatos = true;
+        }
+      });
+    }
+    
+    if (tieneDatos) {
+      datos.push(obj);
+      console.log(`📊 Fila ${filaIndex + 1} de ${idTabla}:`, obj);
+    }
+  });
+  
+  return datos;
+};
 
     function cargarRecursosDesdeDatos(datos) {
       const tbody = document.querySelector('#tblRecursos tbody');
