@@ -477,7 +477,7 @@
             <td><input type="text" class="pdt-desc" value="${act.descripcion || ''}"></td>
             <td><input type="number" step="0.01" class="pdt-cont" value="${act.cantContractual || ''}"></td>
             <td><input type="text" style="width:60px" class="pdt-und" value="${act.unidad || ''}"></td>
-            <td><input type="number" step="0.01" class="pdt-ant" value="${cantAcum.toFixed(2)}" readonly></td>
+            <td><input type="number" step="0.01" class="pdt-ant" value="${cantAcum.toFixed(2)}" oninput="window.calcularAcumulado(this)"></td>
             <td><input type="number" step="0.01" class="pdt-dia" oninput="window.calcularAcumulado(this)"></td>
             <td><input type="number" step="0.01" class="pdt-acum" readonly></td>
             <td><input type="text" class="pdt-porc-dia" readonly></td>
@@ -497,35 +497,41 @@
 
     // ============ TABLA AVANCE DE OBRA ============
     window.agregarFilaAO = function(finalizada = false) {
-      const tbody = document.querySelector('#tblAvanceObra tbody');
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td><input type="checkbox" class="chk-finalizada" ${finalizada ? 'checked' : ''}></td>
-        <td><input type="text" class="pdt-cod" value="NA"></td>
-        <td><select><option value="">-</option><option>A</option><option>B</option><option>C</option></select></td>
-        <td><input type="text" class="pdt-desc"></td>
-        <td><input type="number" step="0.01" class="pdt-cont"></td>
-        <td><input type="text" style="width:60px" class="pdt-und"></td>
-        <td><input type="number" step="0.01" class="pdt-ant" readonly></td>
-        <td><input type="number" step="0.01" class="pdt-dia" oninput="window.calcularAcumulado(this)"></td>
-        <td><input type="number" step="0.01" class="pdt-acum" readonly></td>
-        <td><input type="text" class="pdt-porc-dia" readonly></td>
-        <td><input type="text" class="pdt-porc-acum" readonly></td>
-        <td><button class="btn btn-danger" onclick="this.closest('tr').remove()">✕</button></td>
-      `;
-      tbody.appendChild(tr);
-    };
+  const tbody = document.querySelector('#tblAvanceObra tbody');
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td><input type="checkbox" class="chk-finalizada" ${finalizada ? 'checked' : ''}></td>
+    <td><input type="text" class="pdt-cod" value="NA"></td>
+    <td><select><option value="">-</option><option>A</option><option>B</option><option>C</option></select></td>
+    <td><input type="text" class="pdt-desc"></td>
+    <td><input type="number" step="0.01" class="pdt-cont"></td>
+    <td><input type="text" style="width:60px" class="pdt-und"></td>
+    <td><input type="number" step="0.01" class="pdt-ant" oninput="window.calcularAcumulado(this)"></td>
+    <td><input type="number" step="0.01" class="pdt-dia" oninput="window.calcularAcumulado(this)"></td>
+    <td><input type="number" step="0.01" class="pdt-acum" readonly></td>
+    <td><input type="text" class="pdt-porc-dia" readonly></td>
+    <td><input type="text" class="pdt-porc-acum" readonly></td>
+    <td><button class="btn btn-danger" onclick="this.closest('tr').remove()">✕</button></td>
+  `;
+  tbody.appendChild(tr);
+};
 
     window.calcularAcumulado = function(input) {
-      const fila = input.closest('tr');
-      const ant = parseFloat(fila.querySelector('.pdt-ant').value) || 0;
-      const dia = parseFloat(fila.querySelector('.pdt-dia').value) || 0;
-      const cont = parseFloat(fila.querySelector('.pdt-cont').value) || 1;
-      const acum = ant + dia;
-      fila.querySelector('.pdt-acum').value = acum.toFixed(2);
-      fila.querySelector('.pdt-porc-acum').value = cont > 0 ? ((acum / cont) * 100).toFixed(1) + '%' : '0%';
-      fila.querySelector('.pdt-porc-dia').value = cont > 0 ? ((dia / cont) * 100).toFixed(1) + '%' : '0%';
-    };
+  const fila = input.closest('tr');
+  const ant = parseFloat(fila.querySelector('.pdt-ant').value) || 0;
+  const dia = parseFloat(fila.querySelector('.pdt-dia').value) || 0;
+  const cont = parseFloat(fila.querySelector('.pdt-cont').value) || 0;
+  
+  // CANT.ACUM = CANT.ANT + CANT.DÍA
+  const acum = ant + dia;
+  fila.querySelector('.pdt-acum').value = acum.toFixed(2);
+  
+  // % DÍA = CANT.DÍA / CANT.CONT.
+  fila.querySelector('.pdt-porc-dia').value = cont > 0 ? ((dia / cont) * 100).toFixed(2) + '%' : '0.00%';
+  
+  // % ACUM = CANT.ACUM / CANT.CONT.
+  fila.querySelector('.pdt-porc-acum').value = cont > 0 ? ((acum / cont) * 100).toFixed(2) + '%' : '0.00%';
+};
 
     // ============ TABLA RECURSOS POR ACTIVIDAD ============
     const RECURSOS_PREDETERMINADOS = [
