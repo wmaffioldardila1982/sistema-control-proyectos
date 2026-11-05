@@ -802,27 +802,100 @@ function cargarActividadesPendientes(reporte) {
     window.recolectarTabla = function(idTabla, campos) {
   const filas = document.querySelectorAll('#' + idTabla + ' tbody tr');
   const datos = [];
-  filas.forEach(fila => {
-    const inputs = fila.querySelectorAll('input, select');
-    if (inputs.length === 0) return;
-    const obj = {}; 
+  
+  filas.forEach((fila, filaIndex) => {
+    const obj = {};
     let tieneDatos = false;
     
-    campos.forEach((campo, idx) => {
-      // Saltar el checkbox (índice 0) si existe
-      const inputIdx = idTabla === 'tblAvanceObra' ? idx + 1 : idx;
-      if (inputIdx < inputs.length) {
-        obj[campo] = inputs[inputIdx].value;
-        if (inputs[inputIdx].value && inputs[inputIdx].value.trim() !== '') tieneDatos = true;
+    if (idTabla === 'tblAvanceObra') {
+      // Mapeo EXPLÍCITO usando selectores CSS (NO índices)
+      obj.finalizada = fila.querySelector('.chk-finalizada')?.checked || false;
+      obj.codigoPDT = fila.querySelector('.pdt-cod')?.value || 'NA';
+      
+      const selectTurno = fila.querySelector('select');
+      obj.turno = selectTurno ? selectTurno.value : '';
+      
+      obj.descripcion = fila.querySelector('.pdt-desc')?.value || '';
+      obj.cantContractual = fila.querySelector('.pdt-cont')?.value || '';
+      obj.unidad = fila.querySelector('.pdt-und')?.value || '';
+      obj.cantAnt = fila.querySelector('.pdt-ant')?.value || '0';
+      obj.cantDia = fila.querySelector('.pdt-dia')?.value || '0';
+      obj.cantAcumulada = fila.querySelector('.pdt-acum')?.value || '0';
+      obj.porcDia = fila.querySelector('.pdt-porc-dia')?.value || '0.00%';
+      obj.porcAcumulado = fila.querySelector('.pdt-porc-acum')?.value || '0.00%';
+      
+      // Verificar si tiene datos relevantes (ignorar filas vacías)
+      if (obj.descripcion && obj.descripcion.trim() !== '') {
+        tieneDatos = true;
       }
-    });
+      
+    } else if (idTabla === 'tblAvanceCostos') {
+      // Para costos, usar selectores específicos también
+      const inputs = fila.querySelectorAll('input:not([type="checkbox"]), select');
+      obj.itemCosto = inputs[0]?.value || '';
+      obj.turno = inputs[1]?.value || '';
+      obj.descripcion = inputs[2]?.value || '';
+      obj.cantContractual = inputs[3]?.value || '';
+      obj.unidad = inputs[4]?.value || '';
+      obj.cantAnt = inputs[5]?.value || '0';
+      obj.cantDia = inputs[6]?.value || '0';
+      obj.cantAcumulada = inputs[7]?.value || '0';
+      obj.porcDia = inputs[8]?.value || '';
+      obj.porcAcumulado = inputs[9]?.value || '';
+      
+      if (obj.descripcion && obj.descripcion.trim() !== '') tieneDatos = true;
+      
+    } else if (idTabla === 'tblProximas24h') {
+      const inputs = fila.querySelectorAll('input, select');
+      obj.codigoPDT = inputs[0]?.value || '';
+      obj.turno = inputs[1]?.value || '';
+      obj.actividad = inputs[2]?.value || '';
+      obj.personal = inputs[3]?.value || '';
+      obj.equipos = inputs[4]?.value || '';
+      obj.avanceProy = inputs[5]?.value || '';
+      if (obj.actividad && obj.actividad.trim() !== '') tieneDatos = true;
+      
+    } else if (idTabla === 'tblPersonal') {
+      const inputs = fila.querySelectorAll('input');
+      obj.descripcion = inputs[0]?.value || '';
+      obj.cantidad = inputs[1]?.value || '0';
+      obj.horas = inputs[2]?.value || '0';
+      obj.horasHombre = inputs[3]?.value || '0';
+      if (obj.descripcion && obj.descripcion.trim() !== '') tieneDatos = true;
+      
+    } else if (idTabla === 'tblEquipos') {
+      const inputs = fila.querySelectorAll('input');
+      obj.descripcion = inputs[0]?.value || '';
+      obj.cantidad = inputs[1]?.value || '0';
+      obj.horas = inputs[2]?.value || '0';
+      obj.horasMaquina = inputs[3]?.value || '0';
+      if (obj.descripcion && obj.descripcion.trim() !== '') tieneDatos = true;
+      
+    } else if (idTabla === 'tblPermisos') {
+      const inputs = fila.querySelectorAll('input, select');
+      obj.noPermiso = inputs[0]?.value || '';
+      obj.descripcion = inputs[1]?.value || '';
+      obj.fechaCreacion = inputs[2]?.value || '';
+      obj.fechaVencimiento = inputs[3]?.value || '';
+      obj.estado = inputs[4]?.value || 'Activo';
+      if (obj.descripcion && obj.descripcion.trim() !== '') tieneDatos = true;
+      
+    } else if (idTabla === 'tblImproductividad') {
+      const inputs = fila.querySelectorAll('input, select');
+      obj.tipo = inputs[0]?.value || 'LLUVIAS';
+      obj.horaInicio = inputs[1]?.value || '';
+      obj.horaFin = inputs[2]?.value || '';
+      obj.totalHoras = inputs[3]?.value || '';
+      if (obj.horaInicio || obj.horaFin) tieneDatos = true;
+    }
     
-    // Capturar el checkbox de finalizada
-    const chk = fila.querySelector('.chk-finalizada');
-    if (chk) obj.finalizada = chk.checked;
-    
-    if (tieneDatos) datos.push(obj);
+    if (tieneDatos) {
+      datos.push(obj);
+      console.log(`✅ Fila ${filaIndex + 1} de ${idTabla}:`, obj);
+    }
   });
+  
+  console.log(`📦 Total filas recolectadas de ${idTabla}: ${datos.length}`);
   return datos;
 };
 
