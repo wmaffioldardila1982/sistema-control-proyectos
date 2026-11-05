@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Configuración del Sistema</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-100 min-h-screen">
+
+  <header class="bg-gradient-to-r from-indigo-800 to-indigo-900 text-white shadow-lg">
+    <div class="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
+      <div>
+        <h1 class="text-2xl font-bold"><i class="fas fa-cogs mr-2"></i>Configuración del Sistema</h1>
+        <p class="text-indigo-200 text-sm">Gestión de Frentes, Supervisores y Valores Predeterminados</p>
+      </div>
+      <a href="index.html" class="bg-white text-indigo-800 px-4 py-2 rounded font-semibold hover:bg-gray-100 transition">
+        <i class="fas fa-arrow-left mr-1"></i> Volver al Dashboard
+      </a>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-6 py-6">
+    <div id="alertBox" class="hidden mb-4 p-4 rounded"></div>
+
+    <!-- TABS -->
+    <nav class="bg-white shadow-sm border-b mb-6 rounded-t-lg">
+      <div class="flex space-x-8 px-6 overflow-x-auto">
+        <button onclick="cambiarTab('frentes')" id="tab-frentes" class="py-4 px-2 border-b-3 border-indigo-600 text-indigo-600 font-semibold whitespace-nowrap">
+          <i class="fas fa-map-marker-alt mr-1"></i> Frentes
+        </button>
+        <button onclick="cambiarTab('supervisores')" id="tab-supervisores" class="py-4 px-2 text-gray-600 hover:text-indigo-600 whitespace-nowrap">
+          <i class="fas fa-users mr-1"></i> Supervisores
+        </button>
+        <button onclick="cambiarTab('predeterminados')" id="tab-predeterminados" class="py-4 px-2 text-gray-600 hover:text-indigo-600 whitespace-nowrap">
+          <i class="fas fa-star mr-1"></i> Valores Predeterminados
+        </button>
+      </div>
+    </nav>
+
+    <!-- VISTA: FRENTES -->
+    <div id="vista-frentes" class="fade-in">
+      <div class="bg-white rounded-lg shadow p-6 mb-6">
+        <h2 class="text-xl font-bold text-gray-700 mb-4"><i class="fas fa-plus-circle text-indigo-600 mr-2"></i>Agregar Nuevo Frente</h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div class="md:col-span-2">
+            <label class="block text-sm font-semibold text-gray-600 mb-2">Nombre del Frente</label>
+            <input type="text" id="nombreFrente" placeholder="Ej: Tanque TK-01" class="w-full border rounded px-3 py-2 focus:outline-none focus:border-indigo-600">
+          </div>
+          <div class="flex items-end">
+            <button onclick="agregarFrente()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded font-semibold transition w-full">
+              <i class="fas fa-save mr-1"></i> Agregar
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-lg shadow p-6">
+        <h2 class="text-xl font-bold text-gray-700 mb-4"><i class="fas fa-list text-indigo-600 mr-2"></i>Frentes Registrados</h2>
+        <div id="listaFrentes" class="space-y-2">
+          <p class="text-gray-500 text-center py-4">Cargando...</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- VISTA: SUPERVISORES -->
+    <div id="vista-supervisores" class="hidden fade-in">
+      <div class="bg-white rounded-lg shadow p-6 mb-6">
+        <h2 class="text-xl font-bold text-gray-700 mb-4"><i class="fas fa-user-plus text-indigo-600 mr-2"></i>Agregar Nuevo Supervisor</h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div class="md:col-span-2">
+            <label class="block text-sm font-semibold text-gray-600 mb-2">Nombre del Supervisor</label>
+            <input type="text" id="nombreSupervisor" placeholder="Ej: Carlos Ramírez" class="w-full border rounded px-3 py-2 focus:outline-none focus:border-indigo-600">
+          </div>
+          <div class="flex items-end">
+            <button onclick="agregarSupervisor()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded font-semibold transition w-full">
+              <i class="fas fa-save mr-1"></i> Agregar
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-lg shadow p-6">
+        <h2 class="text-xl font-bold text-gray-700 mb-4"><i class="fas fa-users text-indigo-600 mr-2"></i>Supervisores Registrados</h2>
+        <div id="listaSupervisores" class="space-y-2">
+          <p class="text-gray-500 text-center py-4">Cargando...</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- VISTA: VALORES PREDETERMINADOS -->
+    <div id="vista-predeterminados" class="hidden fade-in">
+      <div class="bg-white rounded-lg shadow p-6">
+        <h2 class="text-xl font-bold text-gray-700 mb-4"><i class="fas fa-star text-yellow-500 mr-2"></i>Valores Predeterminados para Reportes</h2>
+        <p class="text-sm text-gray-500 mb-4">Estos valores aparecerán automáticamente en el formulario de reporte diario.</p>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-semibold text-gray-600 mb-2">Gestor Técnico (Predeterminado)</label>
+            <input type="text" id="gestorTecnicoDef" placeholder="Ej: Ing. Juan Pérez" class="w-full border rounded px-3 py-2 focus:outline-none focus:border-indigo-600">
+          </div>
+          <div>
+            <label class="block text-sm font-semibold text-gray-600 mb-2">Revisó (Predeterminado)</label>
+            <input type="text" id="revisoDef" placeholder="Ej: Ing. María López" class="w-full border rounded px-3 py-2 focus:outline-none focus:border-indigo-600">
+          </div>
+          <div>
+            <label class="block text-sm font-semibold text-gray-600 mb-2">Contrato (Predeterminado)</label>
+            <input type="text" id="contratoDef" placeholder="Ej: CW300828" class="w-full border rounded px-3 py-2 focus:outline-none focus:border-indigo-600">
+          </div>
+          <div>
+            <label class="block text-sm font-semibold text-gray-600 mb-2">Frente Predeterminado</label>
+            <select id="frenteDef" class="w-full border rounded px-3 py-2 focus:outline-none focus:border-indigo-600">
+              <option value="">Seleccione...</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-semibold text-gray-600 mb-2">Supervisor Predeterminado (Elaboró)</label>
+            <select id="supervisorDef" class="w-full border rounded px-3 py-2 focus:outline-none focus:border-indigo-600">
+              <option value="">Seleccione...</option>
+            </select>
+          </div>
+        </div>
+        
+        <button onclick="guardarPredeterminados()" class="mt-6 bg-yellow-500 hover:bg-yellow-600 text-white px-6 py-2 rounded font-semibold transition">
+          <i class="fas fa-save mr-1"></i> Guardar Valores Predeterminados
+        </button>
+      </div>
+    </div>
+  </main>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "TU_API_KEY",
+      authDomain: "tu-proyecto.firebaseapp.com",
+      projectId: "tu-proyecto",
+      storageBucket: "tu-proyecto.appspot.com",
+      messagingSenderId: "TU_SENDER_ID",
+      appId: "TU_APP_ID"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    window.cambiarTab = function(tab) {
+      ['frentes', 'supervisores', 'predeterminados'].forEach(t => {
+        document.getElementById(`vista-${t}`).classList.add('hidden');
+        document.getElementById(`tab-${t}`).classList.remove('border-indigo-600', 'text-indigo-600', 'font-semibold');
+        document.getElementById(`tab-${t}`).classList.add('text-gray-600');
+      });
+      document.getElementById(`vista-${tab}`).classList.remove('hidden');
+      document.getElementById(`tab-${tab}`).classList.add('border-indigo-600', 'text-indigo-600', 'font-semibold');
+      document.getElementById(`tab-${tab}`).classList.remove('text-gray-600');
+      
+      if (tab === 'frentes') cargarFrentes();
+      if (tab === 'supervisores') cargarSupervisores();
+      if (tab === 'predeterminados') cargarPredeterminados();
+    };
+
+    window.mostrarAlerta = function(msg, tipo) {
+      const box = document.getElementById('alertBox');
+      box.textContent = msg;
+      box.className = `mb-4 p-4 rounded ${tipo === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`;
+      box.classList.remove('hidden');
+      setTimeout(() => box.classList.add('hidden'), 4000);
+    };
+
+    // ============ FRENTES ============
+    window.agregarFrente = async function() {
+      const nombre = document.getElementById('nombreFrente').value.trim();
+      if (!nombre) { window.mostrarAlerta('Ingrese el nombre del frente', 'error'); return; }
+      try {
+        await addDoc(collection(db, "frentes"), { nombre, activo: true, fechaCreacion: new Date().toISOString() });
+        document.getElementById('nombreFrente').value = '';
+        window.mostrarAlerta('✅ Frente agregado', 'success');
+        cargarFrentes();
+      } catch (e) { window.mostrarAlerta('Error: ' + e.message, 'error'); }
+    };
+
+    async function cargarFrentes() {
+      const cont = document.getElementById('listaFrentes');
+      try {
+        const snap = await getDocs(collection(db, "frentes"));
+        if (snap.empty) { cont.innerHTML = '<p class="text-gray-500 text-center py-4">No hay frentes registrados</p>'; return; }
+        cont.innerHTML = '';
+        snap.forEach(d => {
+          const f = d.data();
+          const div = document.createElement('div');
+          div.className = 'flex justify-between items-center border rounded p-3 hover:bg-gray-50';
+          div.innerHTML = `
+            <div class="flex items-center gap-2">
+              <i class="fas fa-map-marker-alt text-indigo-600"></i>
+              <span class="font-semibold">${f.nombre}</span>
+            </div>
+            <button onclick="eliminarFrente('${d.id}')" class="text-red-600 hover:text-red-800"><i class="fas fa-trash"></i></button>
+          `;
+          cont.appendChild(div);
+        });
+      } catch (e) { cont.innerHTML = '<p class="text-red-500">Error</p>'; }
+    }
+
+    window.eliminarFrente = async function(id) {
+      if (!confirm('¿Eliminar este frente?')) return;
+      await deleteDoc(doc(db, "frentes", id));
+      cargarFrentes();
+    };
+
+    // ============ SUPERVISORES ============
+    window.agregarSupervisor = async function() {
+      const nombre = document.getElementById('nombreSupervisor').value.trim();
+      if (!nombre) { window.mostrarAlerta('Ingrese el nombre del supervisor', 'error'); return; }
+      try {
+        await addDoc(collection(db, "supervisores"), { nombre, activo: true, fechaCreacion: new Date().toISOString() });
+        document.getElementById('nombreSupervisor').value = '';
+        window.mostrarAlerta('✅ Supervisor agregado', 'success');
+        cargarSupervisores();
+      } catch (e) { window.mostrarAlerta('Error: ' + e.message, 'error'); }
+    };
+
+    async function cargarSupervisores() {
+      const cont = document.getElementById('listaSupervisores');
+      try {
+        const snap = await getDocs(collection(db, "supervisores"));
+        if (snap.empty) { cont.innerHTML = '<p class="text-gray-500 text-center py-4">No hay supervisores registrados</p>'; return; }
+        cont.innerHTML = '';
+        snap.forEach(d => {
+          const s = d.data();
+          const div = document.createElement('div');
+          div.className = 'flex justify-between items-center border rounded p-3 hover:bg-gray-50';
+          div.innerHTML = `
+            <div class="flex items-center gap-2">
+              <i class="fas fa-user text-indigo-600"></i>
+              <span class="font-semibold">${s.nombre}</span>
+            </div>
+            <button onclick="eliminarSupervisor('${d.id}')" class="text-red-600 hover:text-red-800"><i class="fas fa-trash"></i></button>
+          `;
+          cont.appendChild(div);
+        });
+      } catch (e) { cont.innerHTML = '<p class="text-red-500">Error</p>'; }
+    }
+
+    window.eliminarSupervisor = async function(id) {
+      if (!confirm('¿Eliminar este supervisor?')) return;
+      await deleteDoc(doc(db, "supervisores", id));
+      cargarSupervisores();
+    };
+
+    // ============ PREDETERMINADOS ============
+    async function cargarPredeterminados() {
+      try {
+        // Cargar frentes en select
+        const frentesSnap = await getDocs(collection(db, "frentes"));
+        const selectFrente = document.getElementById('frenteDef');
+        selectFrente.innerHTML = '<option value="">Seleccione...</option>';
+        frentesSnap.forEach(d => {
+          const opt = document.createElement('option');
+          opt.value = d.data().nombre;
+          opt.textContent = d.data().nombre;
+          selectFrente.appendChild(opt);
+        });
+
+        // Cargar supervisores en select
+        const supSnap = await getDocs(collection(db, "supervisores"));
+        const selectSup = document.getElementById('supervisorDef');
+        selectSup.innerHTML = '<option value="">Seleccione...</option>';
+        supSnap.forEach(d => {
+          const opt = document.createElement('option');
+          opt.value = d.data().nombre;
+          opt.textContent = d.data().nombre;
+          selectSup.appendChild(opt);
+        });
+
+        // Cargar valores guardados
+        const configDoc = await getDoc(doc(db, "configuracion", "predeterminados"));
+        if (configDoc.exists()) {
+          const c = configDoc.data();
+          document.getElementById('gestorTecnicoDef').value = c.gestorTecnico || '';
+          document.getElementById('revisoDef').value = c.reviso || '';
+          document.getElementById('contratoDef').value = c.contrato || '';
+          document.getElementById('frenteDef').value = c.frente || '';
+          document.getElementById('supervisorDef').value = c.supervisor || '';
+        }
+      } catch (e) { console.error(e); }
+    }
+
+    window.guardarPredeterminados = async function() {
+      try {
+        await setDoc(doc(db, "configuracion", "predeterminados"), {
+          gestorTecnico: document.getElementById('gestorTecnicoDef').value.trim(),
+          reviso: document.getElementById('revisoDef').value.trim(),
+          contrato: document.getElementById('contratoDef').value.trim(),
+          frente: document.getElementById('frenteDef').value,
+          supervisor: document.getElementById('supervisorDef').value,
+          fechaActualizacion: new Date().toISOString()
+        });
+        window.mostrarAlerta('✅ Valores predeterminados guardados', 'success');
+      } catch (e) { window.mostrarAlerta('Error: ' + e.message, 'error'); }
+    };
+
+    // Inicializar
+    cargarFrentes();
+  </script>
+</body>
+</html>
