@@ -686,6 +686,19 @@
     function renderizarListaPDT(actividades, acumulados) {
       const tbody = document.getElementById('listaActividadesPDT');
       tbody.innerHTML = '';
+
+// 🆕 LOG: Mostrar todos los códigos reales del PDT
+  console.log('📋 CÓDIGOS REALES en el PDT:');
+  actividades.forEach(act => {
+    console.log(`   - "${act.activityId}" | ${act.activityName}`);
+  });
+  
+  if (actividades.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6" class="text-center p-4 text-gray-500">No hay actividades con código "K"</td></tr>';
+    return;
+  }
+
+
       if (actividades.length === 0) {
         tbody.innerHTML = '<tr><td colspan="6" class="text-center p-4 text-gray-500">No hay actividades con código "K"</td></tr>';
         return;
