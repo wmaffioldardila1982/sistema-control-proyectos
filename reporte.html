@@ -54,4 +54,372 @@
     .loader.active { display: flex; }
     .spinner { width: 60px; height: 60px; border: 5px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 1s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
-    .report-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(2
+    .report-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 15px; margin-top: 15px; }
+    .report-card { border: 1px solid #e0e4eb; border-radius: 8px; padding: 15px; cursor: pointer; transition: all 0.2s; position: relative; }
+    .report-card:hover { border-color: #1a5490; box-shadow: 0 4px 12px rgba(0,0,0,0.1); transform: translateY(-2px); }
+    .report-card h4 { color: #1a5490; margin-bottom: 8px; }
+    .report-card p { font-size: 12px; color: #666; margin: 3px 0; }
+    .report-card .badge { position: absolute; top: 10px; right: 10px; padding: 3px 8px; border-radius: 10px; font-size: 10px; font-weight: 600; }
+    .status-finalizada { background: #d4edda; color: #155724; }
+    .status-pendiente { background: #f8d7da; color: #721c24; }
+    .observaciones-textarea { width: 100%; min-height: 120px; padding: 12px; border: 1px solid #d0d7e2; border-radius: 6px; font-size: 14px; font-family: inherit; resize: vertical; }
+    .observaciones-textarea:focus { outline: none; border-color: #1a5490; box-shadow: 0 0 0 3px rgba(26,84,144,0.1); }
+    @media print { 
+      body { background: white; padding: 0; } 
+      .actions-bar, .btn, .btn-back, #modalPDT { display: none !important; } 
+      .container { box-shadow: none; }
+      .section { page-break-inside: avoid; margin-bottom: 20px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div>
+        <h1>📋 REPORTE DIARIO DE OBRA</h1>
+        <div style="font-size: 12px; opacity: 0.9; margin-top: 4px;">Formato PS-F-05 | Versión 1.0</div>
+      </div>
+      <div class="header-info">
+        <a href="index.html" class="btn-back">⬅ Volver al Dashboard</a>
+        <span>📅 <span id="fechaHoy"></span></span>
+        <span>📝 Contrato: <span id="contratoDisplay">CW300828</span></span>
+      </div>
+    </div>
+    
+    <div class="content">
+      <div id="alertBox" class="alert"></div>
+      
+      <!-- SECCIÓN 1: INFORMACIÓN GENERAL -->
+      <div class="section" id="sec-general">
+        <h2 class="section-title">📌 Información General del Reporte</h2>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Fecha del Reporte *</label>
+            <input type="date" id="fecha" required onchange="cargarDatosInteligentes()">
+          </div>
+          <div class="form-group">
+            <label>Frente *</label>
+            <select id="frente" onchange="cargarDatosInteligentes()">
+              <option value="">Cargando frentes...</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Turno General</label>
+            <select id="turnoGeneral">
+              <option value="">Seleccione...</option>
+              <option value="A">Turno A</option>
+              <option value="B">Turno B</option>
+              <option value="C">Turno C</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Gestor Técnico *</label>
+            <input type="text" id="gestorTecnico" placeholder="Nombre del gestor">
+          </div>
+          <div class="form-group">
+            <label>Contrato</label>
+            <input type="text" id="contrato" value="CW300828">
+          </div>
+          <div class="form-group">
+            <label>Elaboró *</label>
+            <select id="elaboro">
+              <option value="">Cargando supervisores...</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Revisó *</label>
+            <input type="text" id="reviso" placeholder="Nombre del revisor">
+          </div>
+        </div>
+        <div class="form-group" style="margin-top: 15px;">
+          <label>Objeto Contractual</label>
+          <textarea id="objetoContractual" rows="2">SERVICIO DE MANTENIMIENTO TÉCNICO DE LOS TANQUES DE ALMACENAMIENTO API EN LA GERENCIA REFINERÍA BARRANCABERMEJA DE ECOPETROL S.A.</textarea>
+        </div>
+        <div id="infoReporteAnterior" class="alert info" style="display: none; margin-top: 15px;">
+          <strong>📋 Actividades cargadas del PDT:</strong> <span id="numActividadesCargadas">0</span> actividades vigentes para la fecha seleccionada.
+        </div>
+      </div>
+
+      <!-- SECCIÓN 2: AVANCE DE OBRA -->
+      <div class="section" id="sec-avanceObra">
+        <h2 class="section-title">🏗️ Avance de Obra</h2>
+        <div class="table-container">
+          <table id="tblAvanceObra">
+            <thead>
+              <tr>
+                <th style="width:40px">Fin</th>
+                <th style="width:90px">Cód. PDT</th>
+                <th style="width:80px">Turno</th>
+                <th style="min-width:300px">Descripción Actividad</th>
+                <th style="width:90px">Cant. Cont.</th>
+                <th style="width:70px">Und</th>
+                <th style="width:90px">Cant. Ant.</th>
+                <th style="width:90px">Cant. Día</th>
+                <th style="width:90px">Cant. Acum.</th>
+                <th style="width:70px">% Día</th>
+                <th style="width:70px">% Acum.</th>
+                <th style="width:40px"></th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div style="display: flex; gap: 10px; margin-top: 10px;">
+          <button class="btn btn-secondary" onclick="window.agregarFilaAO()">➕ Agregar Actividad Nueva (Manual)</button>
+          <button class="btn btn-primary" onclick="window.abrirSelectorPDT()">📋 Agregar Actividad del PDT</button>
+        </div>
+      </div>
+
+      <!-- SECCIÓN 2B: RECURSOS POR ACTIVIDAD -->
+      <div class="section" id="sec-recursos">
+        <h2 class="section-title">👷 Recursos por Actividad</h2>
+        <div class="bg-yellow-50 border border-yellow-200 rounded p-3 mb-4 text-sm text-yellow-800">
+          <i class="fas fa-info-circle mr-1"></i>
+          Registre la cantidad de cada recurso asignado a cada actividad. Seleccione la actividad de la lista anterior.
+        </div>
+        <div class="table-container">
+          <table id="tblRecursos">
+            <thead>
+              <tr>
+                <th style="min-width:200px">Actividad (Cód. PDT)</th>
+                <th style="width:100px">Andamiero</th>
+                <th style="width:120px">Ayud. Mecánico</th>
+                <th style="width:140px">Op. Pajarita/Retro</th>
+                <th style="width:130px">Op. Telehandler</th>
+                <th style="width:100px">Soldador</th>
+                <th style="width:120px">Op. Grúa</th>
+                <th style="width:100px">Obrero</th>
+                <th style="width:100px">Pailero</th>
+                <th style="width:130px">Op. Camión Grúa</th>
+                <th style="width:130px">Aparejador Carga</th>
+                <th style="width:130px">Op. Minicargador</th>
+                <th style="width:130px">Sandblastero/Pintor</th>
+                <th style="width:120px">Ayud. Pintura</th>
+                <th style="width:40px"></th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <button class="btn btn-secondary" onclick="window.agregarFilaRecurso()">➕ Agregar Recurso por Actividad</button>
+      </div>
+
+      <!-- SECCIÓN 3: AVANCE DE COSTOS -->
+      <div class="section" id="sec-avanceCostos">
+        <h2 class="section-title">💰 Avance de Costos</h2>
+        <div class="table-container">
+          <table id="tblAvanceCostos">
+            <thead>
+              <tr>
+                <th style="width:100px">Item Costo</th>
+                <th style="width:90px">Turno</th>
+                <th style="min-width:350px">Descripción</th>
+                <th style="width:100px">Cant. Cont.</th>
+                <th style="width:70px">Und</th>
+                <th style="width:90px">Cant. Ant.</th>
+                <th style="width:90px">Cant. Día</th>
+                <th style="width:90px">Cant. Acum.</th>
+                <th style="width:70px">% Día</th>
+                <th style="width:70px">% Acum.</th>
+                <th style="width:40px"></th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <button class="btn btn-secondary" onclick="window.agregarFilaAC()">➕ Agregar Item</button>
+      </div>
+
+      <!-- SECCIÓN 4: PRÓXIMAS 24 HORAS -->
+      <div class="section" id="sec-proximas24h">
+        <h2 class="section-title">⏰ Actividades Próximas 24 Horas</h2>
+        <div class="table-container">
+          <table id="tblProximas24h">
+            <thead>
+              <tr>
+                <th>Cód. PDT</th><th>Turno</th><th style="min-width:300px">Actividad</th><th>Personal</th><th>Equipos/Herramientas</th><th>% Avance Proy.</th><th></th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <button class="btn btn-secondary" onclick="window.agregarFilaP24()">➕ Agregar Actividad</button>
+      </div>
+
+      <!-- SECCIÓN 5: REPORTE DE PERSONAL -->
+      <div class="section" id="sec-personal">
+        <h2 class="section-title">👷 Reporte de Personal</h2>
+        <div class="table-container">
+          <table id="tblPersonal">
+            <thead>
+              <tr>
+                <th style="min-width:250px">Descripción del Cargo</th>
+                <th style="width:80px">Cantidad</th>
+                <th style="width:80px">Horas</th>
+                <th style="width:110px">Horas Hombre</th>
+                <th style="width:40px"></th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <button class="btn btn-secondary" onclick="window.agregarFilaPersonal()">➕ Agregar Personal</button>
+      </div>
+
+      <!-- SECCIÓN 6: MAQUINARIA Y EQUIPOS -->
+      <div class="section" id="sec-equipos">
+        <h2 class="section-title">🚜 Maquinaria, Equipos, Vehículos y Herramientas</h2>
+        <div class="table-container">
+          <table id="tblEquipos">
+            <thead>
+              <tr>
+                <th style="min-width:250px">Descripción</th>
+                <th style="width:80px">Cantidad</th>
+                <th style="width:80px">Horas</th>
+                <th style="width:110px">Horas Máquina</th>
+                <th style="width:40px"></th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <button class="btn btn-secondary" onclick="window.agregarFilaEquipos()">➕ Agregar Equipo</button>
+      </div>
+
+      <!-- SECCIÓN 7: PERMISOS DE TRABAJO -->
+      <div class="section" id="sec-permisos">
+        <h2 class="section-title">📜 Permisos de Trabajo</h2>
+        <div class="table-container">
+          <table id="tblPermisos">
+            <thead>
+              <tr>
+                <th style="width:120px">No. Permiso</th>
+                <th style="min-width:300px">Descripción</th>
+                <th style="width:130px">Fecha Creación</th>
+                <th style="width:130px">Fecha Vencimiento</th>
+                <th style="width:100px">Estado</th>
+                <th style="width:40px"></th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <button class="btn btn-secondary" onclick="window.agregarFilaPermisos()">➕ Agregar Permiso</button>
+      </div>
+
+      <!-- SECCIÓN 8: OBSERVACIONES -->
+      <div class="section" id="sec-observaciones">
+        <h2 class="section-title">📝 Observaciones</h2>
+        <textarea id="observaciones" class="observaciones-textarea" placeholder="Escriba aquí las observaciones generales del reporte..."></textarea>
+      </div>
+
+      <!-- SECCIÓN 9: IMPRODUCTIVIDAD -->
+      <div class="section" id="sec-improductividad">
+        <h2 class="section-title">⚠️ Improductividad</h2>
+        <div class="table-container">
+          <table id="tblImproductividad">
+            <thead>
+              <tr>
+                <th style="width:180px">Tipo</th>
+                <th style="width:120px">Hora Inicio</th>
+                <th style="width:120px">Hora Fin</th>
+                <th style="width:120px">Total Horas</th>
+                <th style="width:40px"></th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <button class="btn btn-secondary" onclick="window.agregarFilaImp()">➕ Agregar Registro</button>
+      </div>
+
+      <!-- SECCIÓN 10: HISTORIAL EDITABLE -->
+      <div class="section" id="sec-historial">
+        <h2 class="section-title">📚 Historial de Reportes (Click para Editar)</h2>
+        <button class="btn btn-primary" onclick="window.cargarHistorial()">🔄 Actualizar Lista</button>
+        <div id="reportList" class="report-list"></div>
+      </div>
+
+      <!-- BARRA DE ACCIONES FIJA -->
+      <div class="actions-bar">
+        <button class="btn btn-secondary" onclick="window.print()">🖨️ Imprimir</button>
+        <button class="btn btn-warning" onclick="window.limpiarFormulario()">🗑️ Limpiar</button>
+        <button class="btn btn-success" onclick="window.guardarReporte()">💾 Guardar Reporte</button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- MODAL PARA SELECCIONAR ACTIVIDADES DEL PDT -->
+  <div id="modalPDT" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-lg shadow-2xl max-w-4xl w-full max-h-[80vh] overflow-hidden flex flex-col">
+      <div class="bg-gradient-to-r from-blue-800 to-blue-900 text-white p-4 flex justify-between items-center shrink-0">
+        <h3 class="text-lg font-bold">📋 Seleccionar Actividades del PDT</h3>
+        <button onclick="window.cerrarModalPDT()" class="text-white hover:text-gray-300 text-2xl">&times;</button>
+      </div>
+      <div class="p-4 flex-1 overflow-hidden flex flex-col">
+        <div class="mb-4 shrink-0">
+          <input type="text" id="buscarPDT" placeholder="🔍 Buscar por código o descripción..." 
+                 class="w-full border rounded px-3 py-2 focus:outline-none focus:border-blue-600"
+                 oninput="window.filtrarActividadesPDT()">
+        </div>
+        <div class="overflow-y-auto flex-1 border rounded">
+          <table class="w-full text-sm">
+            <thead class="bg-gray-100 sticky top-0 z-10">
+              <tr>
+                <th class="px-3 py-2 text-left w-10">✓</th>
+                <th class="px-3 py-2 text-left">Código</th>
+                <th class="px-3 py-2 text-left">Descripción</th>
+                <th class="px-3 py-2 text-center">Cant. Plan</th>
+                <th class="px-3 py-2 text-center">Inicio</th>
+                <th class="px-3 py-2 text-center">Fin</th>
+              </tr>
+            </thead>
+            <tbody id="listaActividadesPDT"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="bg-gray-50 p-4 flex justify-end gap-2 shrink-0 border-t">
+        <button onclick="window.cerrarModalPDT()" class="btn btn-secondary">Cancelar</button>
+        <button onclick="window.agregarActividadesSeleccionadas()" class="btn btn-success">
+          ➕ Agregar Seleccionadas
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="loader" class="loader"><div class="spinner"></div></div>
+  
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+    import { getFirestore, collection, addDoc, getDocs, getDoc, doc, query, orderBy, limit, where, updateDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+    // CONFIGURACIÓN REAL DE FIREBASE
+    const firebaseConfig = {
+      apiKey: "AIzaSyDkxQ7H2ouGb7KTAS5ercSkCHx8quqA3yo",
+      authDomain: "controlproyectos-f080a.firebaseapp.com",
+      projectId: "controlproyectos-f080a",
+      storageBucket: "controlproyectos-f080a.firebasestorage.app",
+      messagingSenderId: "532250557433",
+      appId: "1:532250557433:web:03e5eb48da06f282575b28"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+    let currentUser = null;
+    let reporteActualId = null;
+    let valoresPredeterminados = {};
+    let actividadesPDTDisponibles = [];
+
+    onAuthStateChanged(auth, (user) => {
+      if (user) { currentUser = user; }
+    });
+
+    document.addEventListener('DOMContentLoaded', async function() {
+      document.getElementById('fechaHoy').textContent = new Date().toLocaleDateString('es-CO', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+      document.getElementById('fecha').valueAsDate = new Date();
+      
+      await cargarConfiguracion();
+      await cargarFrentes();
+      await cargar
