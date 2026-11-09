@@ -483,106 +483,126 @@
       window.agregarFilaImp();
     };
 
+    // ============ CARGA INTELIGENTE: PDT + ÚLTIMO REPORTE (MEJORADO) ============
+    
     // Función auxiliar para normalizar cualquier formato de fecha a AAAA-MM-DD
-function normalizarFecha(fechaStr) {
-  if (!fechaStr) return null;
-  // Si ya viene en formato AAAA-MM-DD
-  if (/^\d{4}-\d{2}-\d{2}$/.test(fechaStr)) return fechaStr;
-  
-  // Intentar crear un objeto Date directamente (funciona para muchos formatos)
-  const d = new Date(fechaStr);
-  if (!isNaN(d.getTime())) {
-    return d.toISOString().split('T')[0];
-  }
-  
-  // Si viene como DD/MM/YYYY o DD-MM-YYYY (formato común en Colombia)
-  const partes = fechaStr.toString().split(/[\/\-\.]/);
-  if (partes.length === 3) {
-    let dia = parseInt(partes[0], 10);
-    let mes = parseInt(partes[1], 10) - 1; // Meses en JS van de 0 a 11
-    let anio = parseInt(partes[2], 10);
-    if (anio < 100) anio += 2000; // Asumir siglo 21 si el año tiene 2 dígitos
-    
-    const d2 = new Date(anio, mes, dia);
-    if (!isNaN(d2.getTime())) {
-      return d2.toISOString().split('T')[0];
-    }
-  }
-  return null; // No se pudo reconocer
-}
-
-window.cargarDatosInteligentes = async function() {
-  const fecha = document.getElementById('fecha').value;
-  const frente = document.getElementById('frente').value;
-  if (!fecha || !frente) return;
-
-  console.log(`🧠 Iniciando Carga Inteligente para ${frente} en fecha ${fecha}...`);
-  const tbody = document.querySelector('#tblAvanceObra tbody');
-  tbody.innerHTML = '<tr><td colspan="12" class="text-center p-4 text-blue-600 font-semibold">⏳ Cargando actividades del PDT y acumulados...</td></tr>';
-
-  try {
-    const qPDT = query(collection(db, "pdts"), where("frente", "==", frente));
-    const snapPDT = await getDocs(qPDT);
-    
-    if (snapPDT.empty) {
-      tbody.innerHTML = '<tr><td colspan="12" class="text-center p-4 text-orange-600">⚠️ No hay PDT cargado para este frente.</td></tr>';
-      return;
-    }
-
-    const pdtData = snapPDT.docs[0].data();
-    const actividadesPDT = pdtData.actividades || [];
-    console.log(`📋 PDT encontrado con ${actividadesPDT.length} actividades totales.`);
-
-    // FILTRAR: Solo actividades vigentes Y que empiecen con "K"
-    const actividadesHoy = actividadesPDT.filter(act => {
-      // 1. Limpiar espacios y verificar que empiece con K
-      const codigo = (act.activityId || '').trim().toUpperCase();
-      if (!codigo.startsWith('K')) {
-        console.log(`⏭️ Omitida (no empieza con K): "${act.activityId}"`);
-        return false;
+    function normalizarFecha(fechaStr) {
+      if (!fechaStr) return null;
+      if (/^\d{4}-\d{2}-\d{2}$/.test(fechaStr)) return fechaStr;
+      
+      const d = new Date(fechaStr);
+      if (!isNaN(d.getTime())) {
+        return d.toISOString().split('T')[0];
       }
       
-      // 2. Normalizar fechas para comparar correctamente
-      const inicio = normalizarFecha(act.startDate);
-      const fin = normalizarFecha(act.finishDate);
-      
-      if (!inicio || !fin) {
-        console.log(`⏭️ Omitida (fechas inválidas o vacías): ${codigo} | Inicio: "${act.startDate}" | Fin: "${act.finishDate}"`);
-        return false;
+      const partes = fechaStr.toString().split(/[\/\-\.]/);
+      if (partes.length === 3) {
+        let dia = parseInt(partes[0], 10);
+        let mes = parseInt(partes[1], 10) - 1;
+        let anio = parseInt(partes[2], 10);
+        if (anio < 100) anio += 2000;
+        
+        const d2 = new Date(anio, mes, dia);
+        if (!isNaN(d2.getTime())) {
+          return d2.toISOString().split('T')[0];
+        }
       }
-      
-      // 3. Comparar si la fecha seleccionada está dentro del rango
-      const esVigente = inicio <= fecha && fin >= fecha;
-      if (!esVigente) {
-        console.log(`⏭️ Omitida (fuera de rango): ${codigo} | Plan: ${inicio} a ${fin} (Fecha seleccionada: ${fecha})`);
-      }
-      
-      return esVigente;
-    });
-
-    console.log(`✅ Actividades vigentes con código K para la fecha: ${actividadesHoy.length}`);
-
-    if (actividadesHoy.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="12" class="text-center p-4 text-gray-500">ℹ️ No hay actividades con código "K" planificadas para esta fecha. Use el botón "📋 Agregar Actividad del PDT".</td></tr>';
-      return;
+      return null;
     }
 
-    const acumulados = await obtenerAcumuladosAnteriores(frente, fecha);
-    tbody.innerHTML = '';
+    window.cargarDatosInteligentes = async function() {
+      const fecha = document.getElementById('fecha').value;
+      const frente = document.getElementById('frente').value;
+      if (!fecha || !frente) return;
 
-    actividadesHoy.forEach(act => {
-      agregarFilaAOConDatos(act.activityId || 'NA', act.activityName || '', act.cantidadPlan || 0, 'UND', acumulados[act.activityId] || 0);
-    });
+      console.log(`🧠 Iniciando Carga Inteligente para ${frente} en fecha ${fecha}...`);
+      const tbody = document.querySelector('#tblAvanceObra tbody');
+      tbody.innerHTML = '<tr><td colspan="12" class="text-center p-4 text-blue-600 font-semibold">⏳ Cargando actividades del PDT y acumulados...</td></tr>';
 
-    document.getElementById('infoReporteAnterior').style.display = 'block';
-    document.getElementById('numActividadesCargadas').textContent = actividadesHoy.length;
-    mostrarAlerta(`✅ Se cargaron ${actividadesHoy.length} actividades desde el PDT`, 'success');
+      try {
+        const qPDT = query(collection(db, "pdts"), where("frente", "==", frente));
+        const snapPDT = await getDocs(qPDT);
+        
+        if (snapPDT.empty) {
+          tbody.innerHTML = '<tr><td colspan="12" class="text-center p-4 text-orange-600">⚠️ No hay PDT cargado para este frente.</td></tr>';
+          return;
+        }
 
-  } catch (error) {
-    console.error('❌ Error en carga inteligente:', error);
-    tbody.innerHTML = '<tr><td colspan="12" class="text-center p-4 text-red-600">Error: ' + error.message + '</td></tr>';
-  }
-};
+        const pdtData = snapPDT.docs[0].data();
+        const actividadesPDT = pdtData.actividades || [];
+        console.log(`📋 PDT encontrado con ${actividadesPDT.length} actividades totales.`);
+
+        const actividadesHoy = actividadesPDT.filter(act => {
+          const codigo = (act.activityId || '').trim().toUpperCase();
+          if (!codigo.startsWith('K')) {
+            console.log(`⏭️ Omitida (no empieza con K): "${act.activityId}"`);
+            return false;
+          }
+          
+          const inicio = normalizarFecha(act.startDate);
+          const fin = normalizarFecha(act.finishDate);
+          
+          if (!inicio || !fin) {
+            console.log(`⏭️ Omitida (fechas inválidas o vacías): ${codigo} | Inicio: "${act.startDate}" | Fin: "${act.finishDate}"`);
+            return false;
+          }
+          
+          const esVigente = inicio <= fecha && fin >= fecha;
+          if (!esVigente) {
+            console.log(`⏭️ Omitida (fuera de rango): ${codigo} | Plan: ${inicio} a ${fin} (Fecha seleccionada: ${fecha})`);
+          }
+          
+          return esVigente;
+        });
+
+        console.log(`✅ Actividades vigentes con código K para la fecha: ${actividadesHoy.length}`);
+
+        if (actividadesHoy.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="12" class="text-center p-4 text-gray-500">ℹ️ No hay actividades con código "K" planificadas para esta fecha. Use el botón "📋 Agregar Actividad del PDT".</td></tr>';
+          return;
+        }
+
+        const acumulados = await obtenerAcumuladosAnteriores(frente, fecha);
+        tbody.innerHTML = '';
+
+        actividadesHoy.forEach(act => {
+          agregarFilaAOConDatos(act.activityId || 'NA', act.activityName || '', act.cantidadPlan || 0, 'UND', acumulados[act.activityId] || 0);
+        });
+
+        document.getElementById('infoReporteAnterior').style.display = 'block';
+        document.getElementById('numActividadesCargadas').textContent = actividadesHoy.length;
+        mostrarAlerta(`✅ Se cargaron ${actividadesHoy.length} actividades desde el PDT`, 'success');
+
+      } catch (error) {
+        console.error('❌ Error en carga inteligente:', error);
+        tbody.innerHTML = '<tr><td colspan="12" class="text-center p-4 text-red-600">Error: ' + error.message + '</td></tr>';
+      }
+    };
+
+    async function obtenerAcumuladosAnteriores(frente, fechaActual) {
+      const mapaAcumulados = {};
+      try {
+        const qRep = query(collection(db, "reportesDiarios"), where("frente", "==", frente));
+        const snapRep = await getDocs(qRep);
+        let ultimoReporteValido = null;
+
+        snapRep.forEach(doc => {
+          const data = doc.data();
+          if (data.fecha < fechaActual) {
+            if (!ultimoReporteValido || data.fecha > ultimoReporteValido.fecha) {
+              ultimoReporteValido = data;
+            }
+          }
+        });
+
+        if (ultimoReporteValido && ultimoReporteValido.avanceObra) {
+          ultimoReporteValido.avanceObra.forEach(act => {
+            if (act.codigoPDT) mapaAcumulados[act.codigoPDT] = parseFloat(act.cantAcumulada) || 0;
+          });
+        }
+      } catch (e) { console.error('Error obteniendo acumulados:', e); }
+      return mapaAcumulados;
+    }
 
     function agregarFilaAOConDatos(cod, desc, cont, und, cantAnt) {
       const tbody = document.querySelector('#tblAvanceObra tbody');
@@ -715,7 +735,6 @@ window.cargarDatosInteligentes = async function() {
       checkboxes.forEach(chk => {
         const actividad = actividadesPDTDisponibles.find(a => a.activityId === chk.value);
         if (actividad) {
-          // Buscar si ya tiene acumulado de un reporte anterior
           let cantAnt = 0;
           const filaAcum = document.querySelector(`#tblAvanceObra .pdt-cod[value="${actividad.activityId}"]`);
           if (filaAcum) {
