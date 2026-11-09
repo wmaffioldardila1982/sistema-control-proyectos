@@ -726,13 +726,11 @@
 
     window.filtrarActividadesPDT = function() {
   const input = document.getElementById('buscarPDT');
-  if (!input) {
-    console.error('❌ No se encontró el input #buscarPDT');
-    return;
-  }
+  if (!input) return;
   
-  const texto = input.value.toLowerCase().trim();
-  console.log('🔍 Buscando texto:', texto);
+  // Normalizar: quitar espacios y convertir a minúsculas
+  const texto = input.value.toLowerCase().replace(/\s+/g, '');
+  console.log('🔍 Buscando texto (sin espacios):', texto);
   
   const filas = document.querySelectorAll('#listaActividadesPDT tr');
   console.log(`📋 Total filas encontradas: ${filas.length}`);
@@ -740,10 +738,11 @@
   let visibles = 0;
   filas.forEach((fila) => {
     const celdas = fila.querySelectorAll('td');
-    if (celdas.length < 3) return; // Saltar filas sin datos
+    if (celdas.length < 3) return;
     
-    const codigo = (celdas[1]?.textContent || '').toLowerCase();
-    const descripcion = (celdas[2]?.textContent || '').toLowerCase();
+    // Normalizar también el código y descripción (quitar espacios)
+    const codigo = (celdas[1]?.textContent || '').toLowerCase().replace(/\s+/g, '');
+    const descripcion = (celdas[2]?.textContent || '').toLowerCase().replace(/\s+/g, '');
     
     if (texto === '' || codigo.includes(texto) || descripcion.includes(texto)) {
       fila.style.display = '';
