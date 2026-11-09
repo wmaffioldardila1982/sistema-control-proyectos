@@ -93,11 +93,11 @@
         <div class="form-grid">
           <div class="form-group">
             <label>Fecha del Reporte *</label>
-            <input type="date" id="fecha" required onchange="cargarReporteAnterior()">
+            <input type="date" id="fecha" required onchange="cargarDatosInteligentes()">
           </div>
           <div class="form-group">
             <label>Frente *</label>
-            <select id="frente" onchange="cargarReporteAnterior()">
+            <select id="frente" onchange="cargarDatosInteligentes()">
               <option value="">Cargando frentes...</option>
             </select>
           </div>
@@ -442,114 +442,154 @@
       window.agregarFilaImp();
     };
 
-    // ============ CARGAR REPORTE ANTERIOR ============
-    window.cargarReporteAnterior = async function() {
+// ==========================================
+// CARGA INTELIGENTE: PDT + ÚLTIMO REPORTE
+// ==========================================
+window.cargarDatosInteligentes = async function() {
   const fecha = document.getElementById('fecha').value;
   const frente = document.getElementById('frente').value;
   
-  if (!fecha || !frente) {
-    console.log('⚠️ Falta fecha o frente para cargar reporte anterior');
-    return;
-  }
+  if (!fecha || !frente) return;
+
+  console.log(`🧠 Iniciando Carga Inteligente para ${frente} en fecha ${fecha}...`);
   
-  console.log('🔍 Buscando reporte anterior para frente:', frente, 'fecha:', fecha);
-  
+  // Mostrar loader pequeño en la tabla
+  const tbody = document.querySelector('#tblAvanceObra tbody');
+  tbody.innerHTML = '<tr><td colspan="12" class="text-center p-4 text-blue-600 font-semibold">⏳ Cargando actividades del PDT y acumulados...</td></tr>';
+
   try {
-    // Query simplificada sin orderBy para evitar problemas de índices
-    const q = query(collection(db, "reportesDiarios"), where("frente", "==", frente));
-    const snap = await getDocs(q);
+    // 1. OBTENER EL PDT DEL FRENTE
+    const qPDT = query(collection(db, "pdts"), where("frente", "==", frente));
+    const snapPDT = await getDocs(qPDT);
     
-    console.log('📦 Reportes encontrados:', snap.size);
-    
-    if (snap.empty) {
-      console.log('ℹ️ No hay reportes previos para este frente');
+    if (snapPDT.empty) {
+      tbody.innerHTML = '<tr><td colspan="12" class="text-center p-4 text-orange-600">⚠️ No hay PDT cargado para este frente. Contacte al Administrador.</td></tr>';
       return;
     }
-    
-    // Buscar manualmente el más reciente anterior a la fecha seleccionada
-    let ultimoReporte = null;
-    let fechaMasReciente = null;
-    
-    snap.forEach(docSnap => {
-      const data = docSnap.data();
-      console.log('📄 Reporte encontrado:', data.fecha, '- Actividades:', data.avanceObra?.length || 0);
-      
-      // Solo considerar reportes anteriores a la fecha seleccionada
-      if (data.fecha < fecha) {
-        if (!fechaMasReciente || data.fecha > fechaMasReciente) {
-          fechaMasReciente = data.fecha;
-          ultimoReporte = data;
-        }
-      }
+
+    // Tomamos el primer PDT encontrado (asumimos uno activo por frente por ahora)
+    const pdtData = snapPDT.docs[0].data();
+    const actividadesPDT = pdtData.actividades || [];
+    console.log(`📋 PDT encontrado con ${actividadesPDT.length} actividades totales.`);
+
+    // 2. FILTRAR ACTIVIDADES VIGENTES PARA LA FECHA SELECCIONADA
+    // Lógica: FechaInicio <= FechaSeleccionada AND FechaFin >= FechaSeleccionada
+    const actividadesHoy = actividadesPDT.filter(act => {
+      if (!act.startDate || !act.finishDate) return false;
+      return act.startDate <= fecha && act.finishDate >= fecha;
     });
-    
-    if (ultimoReporte && ultimoReporte.avanceObra && ultimoReporte.avanceObra.length > 0) {
-      console.log('✅ Cargando actividades del reporte del:', fechaMasReciente);
-      cargarActividadesPendientes(ultimoReporte);
-    } else {
-      console.log('ℹ️ No hay reportes anteriores a la fecha seleccionada');
+
+    console.log(`📅 Actividades vigentes para la fecha: ${actividadesHoy.length}`);
+
+    if (actividadesHoy.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="12" class="text-center p-4 text-gray-500">ℹ️ No hay actividades planificadas en el PDT para esta fecha específica.</td></tr>';
+      return;
     }
-    
-  } catch (e) {
-    console.error('❌ Error al cargar reporte anterior:', e);
-    alert('Error al cargar actividades pendientes: ' + e.message);
+
+    // 3. OBTENER ACUMULADOS DEL ÚLTIMO REPORTE
+    const acumulados = await obtenerAcumuladosAnteriores(frente, fecha);
+
+    // 4. LIMPIAR TABLA Y CARGAR DATOS
+    tbody.innerHTML = ''; // Limpiar mensaje de carga
+
+    actividadesHoy.forEach(act => {
+      const codigo = act.activityId || 'NA';
+      const cantAnt = acumulados[codigo] || 0; // Si no hay reporte previo, es 0
+      
+      agregarFilaAOConDatos(
+        codigo,
+        act.activityName || '',
+        act.budgetedLaborUnits || 0, // Usamos Budgeted Units como Cant. Cont. inicial
+        'UND', // Unidad por defecto, editable
+        cantAnt
+      );
+    });
+
+    // Mensaje de éxito
+    mostrarAlerta(`✅ Se cargaron ${actividadesHoy.length} actividades desde el PDT`, 'success');
+
+  } catch (error) {
+    console.error('❌ Error en carga inteligente:', error);
+    tbody.innerHTML = '<tr><td colspan="12" class="text-center p-4 text-red-600">Error al cargar datos: ' + error.message + '</td></tr>';
   }
 };
 
-function cargarActividadesPendientes(reporte) {
-  const tbody = document.querySelector('#tblAvanceObra tbody');
-  tbody.innerHTML = '';
-  let cargadas = 0;
+// Función auxiliar para buscar cuánto se ha reportado antes de esta fecha
+async function obtenerAcumuladosAnteriores(frente, fechaActual) {
+  const mapaAcumulados = {};
   
-  console.log('📋 Cargando', reporte.avanceObra.length, 'actividades del reporte anterior');
-  
-  reporte.avanceObra.forEach((act, index) => {
-    const porcAcum = parseFloat(act.porcAcumulado) || 0;
-    const finalizada = act.finalizada === true;
+  try {
+    // Buscamos reportes de este frente
+    const qRep = query(collection(db, "reportesDiarios"), where("frente", "==", frente));
+    const snapRep = await getDocs(qRep);
     
-    // Solo cargar si NO está finalizada
-    if (porcAcum < 100 && !finalizada) {
-      const cantAcum = parseFloat(act.cantAcumulada) || 0;
-      
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td><input type="checkbox" class="chk-finalizada"></td>
-        <td><input type="text" class="pdt-cod" value="${act.codigoPDT || 'NA'}"></td>
-        <td>
-          <select>
-            <option value="">-</option>
-            <option value="A" ${act.turno === 'A' ? 'selected' : ''}>A</option>
-            <option value="B" ${act.turno === 'B' ? 'selected' : ''}>B</option>
-            <option value="C" ${act.turno === 'C' ? 'selected' : ''}>C</option>
-          </select>
-        </td>
-        <td><input type="text" class="pdt-desc" value="${act.descripcion || ''}"></td>
-        <td><input type="number" step="0.01" class="pdt-cont" value="${act.cantContractual || ''}"></td>
-        <td><input type="text" style="width:60px" class="pdt-und" value="${act.unidad || ''}"></td>
-        <td><input type="number" step="0.01" class="pdt-ant" value="${cantAcum.toFixed(2)}" oninput="window.calcularAcumulado(this)"></td>
-        <td><input type="number" step="0.01" class="pdt-dia" oninput="window.calcularAcumulado(this)"></td>
-        <td><input type="number" step="0.01" class="pdt-acum" readonly></td>
-        <td><input type="text" class="pdt-porc-dia" readonly></td>
-        <td><input type="text" class="pdt-porc-acum" readonly></td>
-        <td><button class="btn btn-danger" onclick="this.closest('tr').remove()">✕</button></td>
-      `;
-      tbody.appendChild(tr);
-      cargadas++;
-      
-      console.log(`  ✅ Actividad ${index + 1}: ${act.codigoPDT || 'NA'} - ${act.descripcion || 'Sin descripción'} (${porcAcum}%)`);
+    let ultimoReporteValido = null;
+
+    // Buscamos manualmente el reporte más reciente ANTERIOR a la fecha seleccionada
+    snapRep.forEach(doc => {
+      const data = doc.data();
+      // Si el reporte es de una fecha anterior a la que estamos editando
+      if (data.fecha < fechaActual) {
+        if (!ultimoReporteValido || data.fecha > ultimoReporteValido.fecha) {
+          ultimoReporteValido = data;
+        }
+      }
+    });
+
+    if (ultimoReporteValido && ultimoReporteValido.avanceObra) {
+      ultimoReporteValido.avanceObra.forEach(act => {
+        // Guardamos el acumulado de ese reporte
+        if (act.codigoPDT) {
+          mapaAcumulados[act.codigoPDT] = parseFloat(act.cantAcumulada) || 0;
+        }
+      });
+      console.log('📊 Acumulados cargados del reporte del:', ultimoReporteValido.fecha);
     } else {
-      console.log(`  ⏭️ Omitida (finalizada o 100%): ${act.codigoPDT || 'NA'} - ${act.descripcion || ''} (${porcAcum}%)`);
+      console.log('ℹ️ No hay reportes anteriores a esta fecha. Cant. Ant. será 0.');
     }
-  });
+
+  } catch (e) {
+    console.error('Error obteniendo acumulados:', e);
+  }
   
-  if (cargadas > 0) {
-    document.getElementById('infoReporteAnterior').style.display = 'block';
-    document.getElementById('numActividadesCargadas').textContent = cargadas;
-    console.log(`✅ Total actividades cargadas: ${cargadas}`);
-  } else {
-    console.log('ℹ️ No hay actividades pendientes para cargar');
+  return mapaAcumulados;
+}
+
+// Función auxiliar para agregar fila con datos pre-llenados
+function agregarFilaAOConDatos(cod, desc, cont, und, cantAnt) {
+  const tbody = document.querySelector('#tblAvanceObra tbody');
+  const tr = document.createElement('tr');
+  
+  tr.innerHTML = `
+    <td><input type="checkbox" class="chk-finalizada"></td>
+    <td><input type="text" class="pdt-cod" value="${cod}"></td>
+    <td>
+      <select>
+        <option value="">-</option>
+        <option value="A">A</option>
+        <option value="B">B</option>
+        <option value="C">C</option>
+      </select>
+    </td>
+    <td><input type="text" class="pdt-desc" value="${desc}"></td>
+    <td><input type="number" step="0.01" class="pdt-cont" value="${cont}"></td>
+    <td><input type="text" style="width:60px" class="pdt-und" value="${und}"></td>
+    <td><input type="number" step="0.01" class="pdt-ant" value="${cantAnt}" oninput="window.calcularAcumulado(this)"></td>
+    <td><input type="number" step="0.01" class="pdt-dia" oninput="window.calcularAcumulado(this)"></td>
+    <td><input type="number" step="0.01" class="pdt-acum" readonly></td>
+    <td><input type="text" class="pdt-porc-dia" readonly></td>
+    <td><input type="text" class="pdt-porc-acum" readonly></td>
+    <td><button class="btn btn-danger" onclick="this.closest('tr').remove()">✕</button></td>
+  `;
+  tbody.appendChild(tr);
+  
+  // Disparar cálculo inicial para llenar % si ya hay Cant. Ant.
+  if (cantAnt > 0) {
+    const inputAnt = tr.querySelector('.pdt-ant');
+    window.calcularAcumulado(inputAnt);
   }
 }
+
 
     // ============ TABLA AVANCE DE OBRA ============
     window.agregarFilaAO = function(finalizada = false) {
