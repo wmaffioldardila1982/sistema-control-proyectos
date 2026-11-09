@@ -148,7 +148,7 @@
             <thead>
               <tr>
                 <th style="width:40px">Fin</th>
-                <th style="width:90px">Cód. PDT</th>
+                <th style="width:150px">Cód. PDT</th>
                 <th style="width:80px">Turno</th>
                 <th style="min-width:300px">Descripción Actividad</th>
                 <th style="width:90px">Cant. Cont.</th>
@@ -359,8 +359,7 @@
       <div class="p-4 flex-1 overflow-hidden flex flex-col">
         <div class="mb-4 shrink-0">
           <input type="text" id="buscarPDT" placeholder="🔍 Buscar por código o descripción..." 
-                 class="w-full border rounded px-3 py-2 focus:outline-none focus:border-blue-600"
-                 >
+                 class="w-full border rounded px-3 py-2 focus:outline-none focus:border-blue-600">
         </div>
         <div class="overflow-y-auto flex-1 border rounded">
           <table class="w-full text-sm">
@@ -426,6 +425,14 @@
       await aplicarPredeterminados();
       
       window.inicializarTablas();
+      
+      // Conectar buscador del modal PDT
+      const buscarInput = document.getElementById('buscarPDT');
+      if (buscarInput) {
+        buscarInput.addEventListener('input', function() {
+          window.filtrarActividadesPDT();
+        });
+      }
     });
 
     // ============ CONFIGURACIÓN ============
@@ -483,9 +490,8 @@
       window.agregarFilaImp();
     };
 
-    // ============ CARGA INTELIGENTE: PDT + ÚLTIMO REPORTE (MEJORADO) ============
+    // ============ CARGA INTELIGENTE: PDT + ÚLTIMO REPORTE ============
     
-    // Función auxiliar para normalizar cualquier formato de fecha a AAAA-MM-DD
     function normalizarFecha(fechaStr) {
       if (!fechaStr) return null;
       if (/^\d{4}-\d{2}-\d{2}$/.test(fechaStr)) return fechaStr;
@@ -673,7 +679,17 @@
         }
 
         const todasActividades = snapPDT.docs[0].data().actividades || [];
-        actividadesPDTDisponibles = todasActividades.filter(act => (act.activityId || '').toUpperCase().startsWith('K'));
+        console.log('📦 TOTAL DE ACTIVIDADES EN FIREBASE:', todasActividades.length);
+        console.log('📋 LISTA COMPLETA DE ACTIVIDADES:');
+        todasActividades.forEach((act, idx) => {
+          console.log(`   ${idx + 1}. ID: "${act.activityId}" | Nombre: "${act.activityName}" | Inicio: ${act.startDate} | Fin: ${act.finishDate}`);
+        });
+        
+        actividadesPDTDisponibles = todasActividades.filter(act => {
+          const codigo = (act.activityId || '').trim().toUpperCase();
+          return codigo.startsWith('K');
+        });
+        console.log(`✅ Actividades con código K: ${actividadesPDTDisponibles.length}`);
 
         const fecha = document.getElementById('fecha').value;
         const acumulados = await obtenerAcumuladosAnteriores(frente, fecha);
@@ -686,19 +702,12 @@
     function renderizarListaPDT(actividades, acumulados) {
       const tbody = document.getElementById('listaActividadesPDT');
       tbody.innerHTML = '';
-
-// 🆕 LOG: Mostrar todos los códigos reales del PDT
-  console.log('📋 CÓDIGOS REALES en el PDT:');
-  actividades.forEach(act => {
-    console.log(`   - "${act.activityId}" | ${act.activityName}`);
-  });
-  
-  if (actividades.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="6" class="text-center p-4 text-gray-500">No hay actividades con código "K"</td></tr>';
-    return;
-  }
-
-
+      
+      console.log('📋 CÓDIGOS REALES en el PDT:');
+      actividades.forEach(act => {
+        console.log(`   - "${act.activityId}" | ${act.activityName}`);
+      });
+      
       if (actividades.length === 0) {
         tbody.innerHTML = '<tr><td colspan="6" class="text-center p-4 text-gray-500">No hay actividades con código "K"</td></tr>';
         return;
@@ -725,35 +734,33 @@
     }
 
     window.filtrarActividadesPDT = function() {
-  const input = document.getElementById('buscarPDT');
-  if (!input) return;
-  
-  // Normalizar: quitar espacios y convertir a minúsculas
-  const texto = input.value.toLowerCase().replace(/\s+/g, '');
-  console.log('🔍 Buscando texto (sin espacios):', texto);
-  
-  const filas = document.querySelectorAll('#listaActividadesPDT tr');
-  console.log(`📋 Total filas encontradas: ${filas.length}`);
-  
-  let visibles = 0;
-  filas.forEach((fila) => {
-    const celdas = fila.querySelectorAll('td');
-    if (celdas.length < 3) return;
-    
-    // Normalizar también el código y descripción (quitar espacios)
-    const codigo = (celdas[1]?.textContent || '').toLowerCase().replace(/\s+/g, '');
-    const descripcion = (celdas[2]?.textContent || '').toLowerCase().replace(/\s+/g, '');
-    
-    if (texto === '' || codigo.includes(texto) || descripcion.includes(texto)) {
-      fila.style.display = '';
-      visibles++;
-    } else {
-      fila.style.display = 'none';
-    }
-  });
-  
-  console.log(`✅ Filas visibles: ${visibles}`);
-};
+      const input = document.getElementById('buscarPDT');
+      if (!input) return;
+      
+      const texto = input.value.toLowerCase().replace(/\s+/g, '');
+      console.log('🔍 Buscando texto (sin espacios):', texto);
+      
+      const filas = document.querySelectorAll('#listaActividadesPDT tr');
+      console.log(`📋 Total filas encontradas: ${filas.length}`);
+      
+      let visibles = 0;
+      filas.forEach((fila) => {
+        const celdas = fila.querySelectorAll('td');
+        if (celdas.length < 3) return;
+        
+        const codigo = (celdas[1]?.textContent || '').toLowerCase().replace(/\s+/g, '');
+        const descripcion = (celdas[2]?.textContent || '').toLowerCase().replace(/\s+/g, '');
+        
+        if (texto === '' || codigo.includes(texto) || descripcion.includes(texto)) {
+          fila.style.display = '';
+          visibles++;
+        } else {
+          fila.style.display = 'none';
+        }
+      });
+      
+      console.log(`✅ Filas visibles: ${visibles}`);
+    };
 
     window.cerrarModalPDT = function() {
       document.getElementById('modalPDT').classList.add('hidden');
@@ -926,7 +933,7 @@
       fila.querySelector('.imp-total').value = `${String(Math.floor(diffMin / 60)).padStart(2, '0')}:${String(diffMin % 60).padStart(2, '0')}`;
     };
 
-    // ============ RECOLECCIÓN DE DATOS (MAPEO EXPLÍCITO) ============
+    // ============ RECOLECCIÓN DE DATOS ============
     window.recolectarTabla = function(idTabla) {
       const filas = document.querySelectorAll('#' + idTabla + ' tbody tr');
       const datos = [];
@@ -1227,35 +1234,6 @@
       setTimeout(() => { box.style.display = 'none'; }, 5000);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     };
-// ============================================
-// CONEXIÓN DIRECTA DEL BUSCADOR DEL MODAL PDT
-// ============================================
-document.addEventListener('DOMContentLoaded', function() {
-  const buscarInput = document.getElementById('buscarPDT');
-  if (buscarInput) {
-    // Conectar el evento input directamente
-    buscarInput.addEventListener('input', function(e) {
-      console.log('⌨️ Evento input detectado, valor:', e.target.value);
-      if (typeof window.filtrarActividadesPDT === 'function') {
-        window.filtrarActividadesPDT();
-      } else {
-        console.error('❌ La función filtrarActividadesPDT no está definida');
-      }
-    });
-    
-    // También conectar el evento keyup como respaldo
-    buscarInput.addEventListener('keyup', function(e) {
-      console.log('⌨️ Evento keyup detectado, tecla:', e.key);
-      if (typeof window.filtrarActividadesPDT === 'function') {
-        window.filtrarActividadesPDT();
-      }
-    });
-    
-    console.log('✅ Buscador del modal PDT conectado correctamente');
-  } else {
-    console.warn('⚠️ No se encontró el input #buscarPDT en el DOM');
-  }
-});
   </script>
 </body>
 </html>
