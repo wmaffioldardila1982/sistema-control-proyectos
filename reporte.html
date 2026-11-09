@@ -5,6 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Reporte Diario de Obra - PS-F-05</title>
+  <link rel="icon" href="data:,">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: 'Segoe UI', Tahoma, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; padding: 20px; }
@@ -57,7 +58,6 @@
     .report-card h4 { color: #1a5490; margin-bottom: 8px; }
     .report-card p { font-size: 12px; color: #666; margin: 3px 0; }
     .report-card .badge { position: absolute; top: 10px; right: 10px; padding: 3px 8px; border-radius: 10px; font-size: 10px; font-weight: 600; }
-    .badge-edit { background: #fff3cd; color: #856404; }
     .status-finalizada { background: #d4edda; color: #155724; }
     .status-pendiente { background: #f8d7da; color: #721c24; }
     .observaciones-textarea { width: 100%; min-height: 120px; padding: 12px; border: 1px solid #d0d7e2; border-radius: 6px; font-size: 14px; font-family: inherit; resize: vertical; }
@@ -134,11 +134,11 @@
           <textarea id="objetoContractual" rows="2">SERVICIO DE MANTENIMIENTO TÉCNICO DE LOS TANQUES DE ALMACENAMIENTO API EN LA GERENCIA REFINERÍA BARRANCABERMEJA DE ECOPETROL S.A.</textarea>
         </div>
         <div id="infoReporteAnterior" class="alert info" style="display: none; margin-top: 15px;">
-          <strong>📋 Actividades cargadas del reporte anterior:</strong> <span id="numActividadesCargadas">0</span> actividades pendientes continúan en este reporte.
+          <strong>📋 Actividades cargadas del PDT:</strong> <span id="numActividadesCargadas">0</span> actividades vigentes para la fecha seleccionada.
         </div>
       </div>
 
-      <!-- SECCIÓN 2: AVANCE DE OBRA (TABLA PRINCIPAL) -->
+      <!-- SECCIÓN 2: AVANCE DE OBRA -->
       <div class="section" id="sec-avanceObra">
         <h2 class="section-title">🏗️ Avance de Obra</h2>
         <div class="table-container">
@@ -165,7 +165,7 @@
         <button class="btn btn-secondary" onclick="window.agregarFilaAO()">➕ Agregar Actividad Nueva</button>
       </div>
 
-      <!-- SECCIÓN 2B: RECURSOS POR ACTIVIDAD (NUEVA TABLA) -->
+      <!-- SECCIÓN 2B: RECURSOS POR ACTIVIDAD -->
       <div class="section" id="sec-recursos">
         <h2 class="section-title">👷 Recursos por Actividad</h2>
         <div class="bg-yellow-50 border border-yellow-200 rounded p-3 mb-4 text-sm text-yellow-800">
@@ -302,7 +302,7 @@
         <button class="btn btn-secondary" onclick="window.agregarFilaPermisos()">➕ Agregar Permiso</button>
       </div>
 
-      <!-- SECCIÓN 8: OBSERVACIONES (NUEVA SECCIÓN SEPARADA) -->
+      <!-- SECCIÓN 8: OBSERVACIONES -->
       <div class="section" id="sec-observaciones">
         <h2 class="section-title">📝 Observaciones</h2>
         <textarea id="observaciones" class="observaciones-textarea" placeholder="Escriba aquí las observaciones generales del reporte..."></textarea>
@@ -352,14 +352,13 @@
     import { getFirestore, collection, addDoc, getDocs, getDoc, doc, query, orderBy, limit, where, updateDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
     const firebaseConfig = {
-  apiKey: "AIzaSyDkxQ7H2ouGb7KTAS5ercSkCHx8quqA3yo",
-  authDomain: "controlproyectos-f080a.firebaseapp.com",
-  projectId: "controlproyectos-f080a",
-  storageBucket: "controlproyectos-f080a.firebasestorage.app",
-  messagingSenderId: "532250557433",
-  appId: "1:532250557433:web:03e5eb48da06f282575b28"
-};
-
+      apiKey: "TU_API_KEY",
+      authDomain: "tu-proyecto.firebaseapp.com",
+      projectId: "tu-proyecto",
+      storageBucket: "tu-proyecto.appspot.com",
+      messagingSenderId: "TU_SENDER_ID",
+      appId: "TU_APP_ID"
+    };
 
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
@@ -376,7 +375,6 @@
       document.getElementById('fechaHoy').textContent = new Date().toLocaleDateString('es-CO', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
       document.getElementById('fecha').valueAsDate = new Date();
       
-      // Cargar datos de configuración
       await cargarConfiguracion();
       await cargarFrentes();
       await cargarSupervisores();
@@ -385,7 +383,7 @@
       window.inicializarTablas();
     });
 
-    // ============ CARGAR CONFIGURACIÓN ============
+    // ============ CONFIGURACIÓN ============
     async function cargarConfiguracion() {
       try {
         const configDoc = await getDoc(doc(db, "configuracion", "predeterminados"));
@@ -442,191 +440,170 @@
       window.agregarFilaImp();
     };
 
-// ==========================================
-// CARGA INTELIGENTE: PDT + ÚLTIMO REPORTE
-// ==========================================
-window.cargarDatosInteligentes = async function() {
-  const fecha = document.getElementById('fecha').value;
-  const frente = document.getElementById('frente').value;
-  
-  if (!fecha || !frente) return;
-
-  console.log(`🧠 Iniciando Carga Inteligente para ${frente} en fecha ${fecha}...`);
-  
-  // Mostrar loader pequeño en la tabla
-  const tbody = document.querySelector('#tblAvanceObra tbody');
-  tbody.innerHTML = '<tr><td colspan="12" class="text-center p-4 text-blue-600 font-semibold">⏳ Cargando actividades del PDT y acumulados...</td></tr>';
-
-  try {
-    // 1. OBTENER EL PDT DEL FRENTE
-    const qPDT = query(collection(db, "pdts"), where("frente", "==", frente));
-    const snapPDT = await getDocs(qPDT);
-    
-    if (snapPDT.empty) {
-      tbody.innerHTML = '<tr><td colspan="12" class="text-center p-4 text-orange-600">⚠️ No hay PDT cargado para este frente. Contacte al Administrador.</td></tr>';
-      return;
-    }
-
-    // Tomamos el primer PDT encontrado (asumimos uno activo por frente por ahora)
-    const pdtData = snapPDT.docs[0].data();
-    const actividadesPDT = pdtData.actividades || [];
-    console.log(`📋 PDT encontrado con ${actividadesPDT.length} actividades totales.`);
-
-    // 2. FILTRAR ACTIVIDADES VIGENTES PARA LA FECHA SELECCIONADA
-    // Lógica: FechaInicio <= FechaSeleccionada AND FechaFin >= FechaSeleccionada
-    const actividadesHoy = actividadesPDT.filter(act => {
-      if (!act.startDate || !act.finishDate) return false;
-      return act.startDate <= fecha && act.finishDate >= fecha;
-    });
-
-    console.log(`📅 Actividades vigentes para la fecha: ${actividadesHoy.length}`);
-
-    if (actividadesHoy.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="12" class="text-center p-4 text-gray-500">ℹ️ No hay actividades planificadas en el PDT para esta fecha específica.</td></tr>';
-      return;
-    }
-
-    // 3. OBTENER ACUMULADOS DEL ÚLTIMO REPORTE
-    const acumulados = await obtenerAcumuladosAnteriores(frente, fecha);
-
-    // 4. LIMPIAR TABLA Y CARGAR DATOS
-    tbody.innerHTML = ''; // Limpiar mensaje de carga
-
-    actividadesHoy.forEach(act => {
-      const codigo = act.activityId || 'NA';
-      const cantAnt = acumulados[codigo] || 0; // Si no hay reporte previo, es 0
+    // ============ CARGA INTELIGENTE: PDT + ÚLTIMO REPORTE ============
+    window.cargarDatosInteligentes = async function() {
+      const fecha = document.getElementById('fecha').value;
+      const frente = document.getElementById('frente').value;
       
-      agregarFilaAOConDatos(
-  codigo,
-  act.activityName || '',
-  act.cantidadPlan || 0, // Usamos Cantidad Plan del Excel
-  'UND', // Unidad por defecto, editable
-  cantAnt
-);
+      if (!fecha || !frente) return;
 
-    // Mensaje de éxito
-    mostrarAlerta(`✅ Se cargaron ${actividadesHoy.length} actividades desde el PDT`, 'success');
+      console.log(`🧠 Iniciando Carga Inteligente para ${frente} en fecha ${fecha}...`);
+      
+      const tbody = document.querySelector('#tblAvanceObra tbody');
+      tbody.innerHTML = '<tr><td colspan="12" class="text-center p-4 text-blue-600 font-semibold">⏳ Cargando actividades del PDT y acumulados...</td></tr>';
 
-  } catch (error) {
-    console.error('❌ Error en carga inteligente:', error);
-    tbody.innerHTML = '<tr><td colspan="12" class="text-center p-4 text-red-600">Error al cargar datos: ' + error.message + '</td></tr>';
-  }
-};
-
-// Función auxiliar para buscar cuánto se ha reportado antes de esta fecha
-async function obtenerAcumuladosAnteriores(frente, fechaActual) {
-  const mapaAcumulados = {};
-  
-  try {
-    // Buscamos reportes de este frente
-    const qRep = query(collection(db, "reportesDiarios"), where("frente", "==", frente));
-    const snapRep = await getDocs(qRep);
-    
-    let ultimoReporteValido = null;
-
-    // Buscamos manualmente el reporte más reciente ANTERIOR a la fecha seleccionada
-    snapRep.forEach(doc => {
-      const data = doc.data();
-      // Si el reporte es de una fecha anterior a la que estamos editando
-      if (data.fecha < fechaActual) {
-        if (!ultimoReporteValido || data.fecha > ultimoReporteValido.fecha) {
-          ultimoReporteValido = data;
+      try {
+        const qPDT = query(collection(db, "pdts"), where("frente", "==", frente));
+        const snapPDT = await getDocs(qPDT);
+        
+        if (snapPDT.empty) {
+          tbody.innerHTML = '<tr><td colspan="12" class="text-center p-4 text-orange-600">⚠️ No hay PDT cargado para este frente. Contacte al Administrador.</td></tr>';
+          return;
         }
+
+        const pdtData = snapPDT.docs[0].data();
+        const actividadesPDT = pdtData.actividades || [];
+        console.log(`📋 PDT encontrado con ${actividadesPDT.length} actividades totales.`);
+
+        const actividadesHoy = actividadesPDT.filter(act => {
+          if (!act.startDate || !act.finishDate) return false;
+          return act.startDate <= fecha && act.finishDate >= fecha;
+        });
+
+        console.log(`📅 Actividades vigentes para la fecha: ${actividadesHoy.length}`);
+
+        if (actividadesHoy.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="12" class="text-center p-4 text-gray-500">ℹ️ No hay actividades planificadas en el PDT para esta fecha específica.</td></tr>';
+          return;
+        }
+
+        const acumulados = await obtenerAcumuladosAnteriores(frente, fecha);
+
+        tbody.innerHTML = '';
+
+        actividadesHoy.forEach(act => {
+          const codigo = act.activityId || 'NA';
+          const cantAnt = acumulados[codigo] || 0;
+          
+          agregarFilaAOConDatos(
+            codigo,
+            act.activityName || '',
+            act.cantidadPlan || 0,
+            'UND',
+            cantAnt
+          );
+        });
+
+        document.getElementById('infoReporteAnterior').style.display = 'block';
+        document.getElementById('numActividadesCargadas').textContent = actividadesHoy.length;
+        mostrarAlerta(`✅ Se cargaron ${actividadesHoy.length} actividades desde el PDT`, 'success');
+
+      } catch (error) {
+        console.error('❌ Error en carga inteligente:', error);
+        tbody.innerHTML = '<tr><td colspan="12" class="text-center p-4 text-red-600">Error al cargar datos: ' + error.message + '</td></tr>';
       }
-    });
+    };
 
-    if (ultimoReporteValido && ultimoReporteValido.avanceObra) {
-      ultimoReporteValido.avanceObra.forEach(act => {
-        // Guardamos el acumulado de ese reporte
-        if (act.codigoPDT) {
-          mapaAcumulados[act.codigoPDT] = parseFloat(act.cantAcumulada) || 0;
+    async function obtenerAcumuladosAnteriores(frente, fechaActual) {
+      const mapaAcumulados = {};
+      
+      try {
+        const qRep = query(collection(db, "reportesDiarios"), where("frente", "==", frente));
+        const snapRep = await getDocs(qRep);
+        
+        let ultimoReporteValido = null;
+
+        snapRep.forEach(doc => {
+          const data = doc.data();
+          if (data.fecha < fechaActual) {
+            if (!ultimoReporteValido || data.fecha > ultimoReporteValido.fecha) {
+              ultimoReporteValido = data;
+            }
+          }
+        });
+
+        if (ultimoReporteValido && ultimoReporteValido.avanceObra) {
+          ultimoReporteValido.avanceObra.forEach(act => {
+            if (act.codigoPDT) {
+              mapaAcumulados[act.codigoPDT] = parseFloat(act.cantAcumulada) || 0;
+            }
+          });
+          console.log('📊 Acumulados cargados del reporte del:', ultimoReporteValido.fecha);
+        } else {
+          console.log('ℹ️ No hay reportes anteriores a esta fecha. Cant. Ant. será 0.');
         }
-      });
-      console.log('📊 Acumulados cargados del reporte del:', ultimoReporteValido.fecha);
-    } else {
-      console.log('ℹ️ No hay reportes anteriores a esta fecha. Cant. Ant. será 0.');
+
+      } catch (e) {
+        console.error('Error obteniendo acumulados:', e);
+      }
+      
+      return mapaAcumulados;
     }
 
-  } catch (e) {
-    console.error('Error obteniendo acumulados:', e);
-  }
-  
-  return mapaAcumulados;
-}
-
-// Función auxiliar para agregar fila con datos pre-llenados
-function agregarFilaAOConDatos(cod, desc, cont, und, cantAnt) {
-  const tbody = document.querySelector('#tblAvanceObra tbody');
-  const tr = document.createElement('tr');
-  
-  tr.innerHTML = `
-    <td><input type="checkbox" class="chk-finalizada"></td>
-    <td><input type="text" class="pdt-cod" value="${cod}"></td>
-    <td>
-      <select>
-        <option value="">-</option>
-        <option value="A">A</option>
-        <option value="B">B</option>
-        <option value="C">C</option>
-      </select>
-    </td>
-    <td><input type="text" class="pdt-desc" value="${desc}"></td>
-    <td><input type="number" step="0.01" class="pdt-cont" value="${cont}"></td>
-    <td><input type="text" style="width:60px" class="pdt-und" value="${und}"></td>
-    <td><input type="number" step="0.01" class="pdt-ant" value="${cantAnt}" oninput="window.calcularAcumulado(this)"></td>
-    <td><input type="number" step="0.01" class="pdt-dia" oninput="window.calcularAcumulado(this)"></td>
-    <td><input type="number" step="0.01" class="pdt-acum" readonly></td>
-    <td><input type="text" class="pdt-porc-dia" readonly></td>
-    <td><input type="text" class="pdt-porc-acum" readonly></td>
-    <td><button class="btn btn-danger" onclick="this.closest('tr').remove()">✕</button></td>
-  `;
-  tbody.appendChild(tr);
-  
-  // Disparar cálculo inicial para llenar % si ya hay Cant. Ant.
-  if (cantAnt > 0) {
-    const inputAnt = tr.querySelector('.pdt-ant');
-    window.calcularAcumulado(inputAnt);
-  }
-}
-
+    function agregarFilaAOConDatos(cod, desc, cont, und, cantAnt) {
+      const tbody = document.querySelector('#tblAvanceObra tbody');
+      const tr = document.createElement('tr');
+      
+      tr.innerHTML = `
+        <td><input type="checkbox" class="chk-finalizada"></td>
+        <td><input type="text" class="pdt-cod" value="${cod}"></td>
+        <td>
+          <select>
+            <option value="">-</option>
+            <option value="A">A</option>
+            <option value="B">B</option>
+            <option value="C">C</option>
+          </select>
+        </td>
+        <td><input type="text" class="pdt-desc" value="${desc}"></td>
+        <td><input type="number" step="0.01" class="pdt-cont" value="${cont}"></td>
+        <td><input type="text" style="width:60px" class="pdt-und" value="${und}"></td>
+        <td><input type="number" step="0.01" class="pdt-ant" value="${cantAnt}" oninput="window.calcularAcumulado(this)"></td>
+        <td><input type="number" step="0.01" class="pdt-dia" oninput="window.calcularAcumulado(this)"></td>
+        <td><input type="number" step="0.01" class="pdt-acum" readonly></td>
+        <td><input type="text" class="pdt-porc-dia" readonly></td>
+        <td><input type="text" class="pdt-porc-acum" readonly></td>
+        <td><button class="btn btn-danger" onclick="this.closest('tr').remove()">✕</button></td>
+      `;
+      tbody.appendChild(tr);
+      
+      if (cantAnt > 0) {
+        const inputAnt = tr.querySelector('.pdt-ant');
+        window.calcularAcumulado(inputAnt);
+      }
+    }
 
     // ============ TABLA AVANCE DE OBRA ============
     window.agregarFilaAO = function(finalizada = false) {
-  const tbody = document.querySelector('#tblAvanceObra tbody');
-  const tr = document.createElement('tr');
-  tr.innerHTML = `
-    <td><input type="checkbox" class="chk-finalizada" ${finalizada ? 'checked' : ''}></td>
-    <td><input type="text" class="pdt-cod" value="NA"></td>
-    <td><select><option value="">-</option><option>A</option><option>B</option><option>C</option></select></td>
-    <td><input type="text" class="pdt-desc"></td>
-    <td><input type="number" step="0.01" class="pdt-cont"></td>
-    <td><input type="text" style="width:60px" class="pdt-und"></td>
-    <td><input type="number" step="0.01" class="pdt-ant" oninput="window.calcularAcumulado(this)"></td>
-    <td><input type="number" step="0.01" class="pdt-dia" oninput="window.calcularAcumulado(this)"></td>
-    <td><input type="number" step="0.01" class="pdt-acum" readonly></td>
-    <td><input type="text" class="pdt-porc-dia" readonly></td>
-    <td><input type="text" class="pdt-porc-acum" readonly></td>
-    <td><button class="btn btn-danger" onclick="this.closest('tr').remove()">✕</button></td>
-  `;
-  tbody.appendChild(tr);
-};
+      const tbody = document.querySelector('#tblAvanceObra tbody');
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><input type="checkbox" class="chk-finalizada" ${finalizada ? 'checked' : ''}></td>
+        <td><input type="text" class="pdt-cod" value="NA"></td>
+        <td><select><option value="">-</option><option>A</option><option>B</option><option>C</option></select></td>
+        <td><input type="text" class="pdt-desc"></td>
+        <td><input type="number" step="0.01" class="pdt-cont"></td>
+        <td><input type="text" style="width:60px" class="pdt-und"></td>
+        <td><input type="number" step="0.01" class="pdt-ant" oninput="window.calcularAcumulado(this)"></td>
+        <td><input type="number" step="0.01" class="pdt-dia" oninput="window.calcularAcumulado(this)"></td>
+        <td><input type="number" step="0.01" class="pdt-acum" readonly></td>
+        <td><input type="text" class="pdt-porc-dia" readonly></td>
+        <td><input type="text" class="pdt-porc-acum" readonly></td>
+        <td><button class="btn btn-danger" onclick="this.closest('tr').remove()">✕</button></td>
+      `;
+      tbody.appendChild(tr);
+    };
 
     window.calcularAcumulado = function(input) {
-  const fila = input.closest('tr');
-  const ant = parseFloat(fila.querySelector('.pdt-ant').value) || 0;
-  const dia = parseFloat(fila.querySelector('.pdt-dia').value) || 0;
-  const cont = parseFloat(fila.querySelector('.pdt-cont').value) || 0;
-  
-  // CANT.ACUM = CANT.ANT + CANT.DÍA
-  const acum = ant + dia;
-  fila.querySelector('.pdt-acum').value = acum.toFixed(2);
-  
-  // % DÍA = CANT.DÍA / CANT.CONT.
-  fila.querySelector('.pdt-porc-dia').value = cont > 0 ? ((dia / cont) * 100).toFixed(2) + '%' : '0.00%';
-  
-  // % ACUM = CANT.ACUM / CANT.CONT.
-  fila.querySelector('.pdt-porc-acum').value = cont > 0 ? ((acum / cont) * 100).toFixed(2) + '%' : '0.00%';
-};
+      const fila = input.closest('tr');
+      const ant = parseFloat(fila.querySelector('.pdt-ant').value) || 0;
+      const dia = parseFloat(fila.querySelector('.pdt-dia').value) || 0;
+      const cont = parseFloat(fila.querySelector('.pdt-cont').value) || 0;
+      const acum = ant + dia;
+      fila.querySelector('.pdt-acum').value = acum.toFixed(2);
+      fila.querySelector('.pdt-porc-dia').value = cont > 0 ? ((dia / cont) * 100).toFixed(2) + '%' : '0.00%';
+      fila.querySelector('.pdt-porc-acum').value = cont > 0 ? ((acum / cont) * 100).toFixed(2) + '%' : '0.00%';
+    };
 
     // ============ TABLA RECURSOS POR ACTIVIDAD ============
     const RECURSOS_PREDETERMINADOS = [
@@ -640,7 +617,6 @@ function agregarFilaAOConDatos(cod, desc, cont, und, cantAnt) {
       const tbody = document.querySelector('#tblRecursos tbody');
       const tr = document.createElement('tr');
       
-      // Cargar actividades existentes en el select
       const actividadesSelect = construirSelectActividades();
       
       let html = `<td><select class="res-actividad">${actividadesSelect}</select></td>`;
@@ -667,7 +643,6 @@ function agregarFilaAOConDatos(cod, desc, cont, und, cantAnt) {
       return opciones;
     }
 
-    // Actualizar selects de recursos cuando cambia una actividad
     document.addEventListener('input', function(e) {
       if (e.target.classList.contains('pdt-cod') || e.target.classList.contains('pdt-desc')) {
         actualizarSelectsRecursos();
@@ -684,7 +659,7 @@ function agregarFilaAOConDatos(cod, desc, cont, und, cantAnt) {
       });
     }
 
-    // ============ TABLA AVANCE DE COSTOS (CORREGIDA) ============
+    // ============ TABLA AVANCE DE COSTOS ============
     window.agregarFilaAC = function() {
       const tr = document.createElement('tr');
       tr.innerHTML = `
@@ -721,7 +696,7 @@ function agregarFilaAOConDatos(cod, desc, cont, und, cantAnt) {
       document.querySelector('#tblProximas24h tbody').appendChild(tr);
     };
 
-    // ============ TABLA PERSONAL (CON HORAS HOMBRE) ============
+    // ============ TABLA PERSONAL ============
     window.cargarPersonalPredeterminado = function() {
       const roles = ['SUPERVISOR DE OBRA', 'HSE OPERATIVO', 'ANDAMIERO', 'AYUDANTE MECANICO', 'RESCATISTA', 'OPERADOR DE PAJARITA O RETROEXCAVADORA', 'OPERADOR DE TELEHANDLER', 'SOLDADOR', 'OPERADOR DE GRUA', 'OBRERO', 'PAILERO', 'OPERADOR DE CAMION GRUA', 'APAREJADOR DE CARGA', 'OPERADOR DE MINICARGADOR', 'SANDBLASTERO PINTOR', 'AYUDANTE DE PINTURA'];
       const tbody = document.querySelector('#tblPersonal tbody'); tbody.innerHTML = '';
@@ -757,7 +732,7 @@ function agregarFilaAOConDatos(cod, desc, cont, und, cantAnt) {
       document.querySelector('#tblPersonal tbody').appendChild(tr);
     };
 
-    // ============ TABLA EQUIPOS (CON HORAS MÁQUINA) ============
+    // ============ TABLA EQUIPOS ============
     window.cargarEquiposPredeterminados = function() {
       const equipos = ['TABLERO ELECTRICO', 'BAÑOS', 'CARPA', 'PUNTO ECOLOGICO', 'EQUIPO MEDICION AMBIENTAL', 'EXTRACTORES', 'REFLECTORES', 'MOTOSOLDADOR', 'COMPRESOR', 'GRANALLADORA', 'PULIDORAS', 'TOLVAS', 'ESCAFANDRAS', 'EQUIPO DE PINTURA', 'HERRAMIENTA MENOR', 'GENERADOR ELECTRICO'];
       const tbody = document.querySelector('#tblEquipos tbody'); tbody.innerHTML = '';
@@ -800,7 +775,7 @@ function agregarFilaAOConDatos(cod, desc, cont, und, cantAnt) {
       document.querySelector('#tblPermisos tbody').appendChild(tr);
     };
 
-    // ============ TABLA IMPRODUCTIVIDAD (CON CÁLCULO DE HORAS) ============
+    // ============ TABLA IMPRODUCTIVIDAD ============
     window.agregarFilaImp = function() {
       const tr = document.createElement('tr');
       tr.innerHTML = `
@@ -825,7 +800,6 @@ function agregarFilaAOConDatos(cod, desc, cont, und, cantAnt) {
       let minutosInicio = h1 * 60 + m1;
       let minutosFin = h2 * 60 + m2;
       
-      // Si fin < inicio, asumimos cruce de medianoche
       if (minutosFin < minutosInicio) {
         minutosFin += 24 * 60;
       }
@@ -839,104 +813,100 @@ function agregarFilaAOConDatos(cod, desc, cont, und, cantAnt) {
 
     // ============ RECOLECCIÓN DE DATOS ============
     window.recolectarTabla = function(idTabla, campos) {
-  const filas = document.querySelectorAll('#' + idTabla + ' tbody tr');
-  const datos = [];
-  
-  filas.forEach((fila, filaIndex) => {
-    const obj = {};
-    let tieneDatos = false;
-    
-    if (idTabla === 'tblAvanceObra') {
-      // Mapeo EXPLÍCITO usando selectores CSS (NO índices)
-      obj.finalizada = fila.querySelector('.chk-finalizada')?.checked || false;
-      obj.codigoPDT = fila.querySelector('.pdt-cod')?.value || 'NA';
+      const filas = document.querySelectorAll('#' + idTabla + ' tbody tr');
+      const datos = [];
       
-      const selectTurno = fila.querySelector('select');
-      obj.turno = selectTurno ? selectTurno.value : '';
+      filas.forEach((fila, filaIndex) => {
+        const obj = {};
+        let tieneDatos = false;
+        
+        if (idTabla === 'tblAvanceObra') {
+          obj.finalizada = fila.querySelector('.chk-finalizada')?.checked || false;
+          obj.codigoPDT = fila.querySelector('.pdt-cod')?.value || 'NA';
+          
+          const selectTurno = fila.querySelector('select');
+          obj.turno = selectTurno ? selectTurno.value : '';
+          
+          obj.descripcion = fila.querySelector('.pdt-desc')?.value || '';
+          obj.cantidadPlan = fila.querySelector('.pdt-cont')?.value || '';
+          obj.cantContractual = fila.querySelector('.pdt-cont')?.value || '';
+          obj.unidad = fila.querySelector('.pdt-und')?.value || '';
+          obj.cantAnt = fila.querySelector('.pdt-ant')?.value || '0';
+          obj.cantDia = fila.querySelector('.pdt-dia')?.value || '0';
+          obj.cantAcumulada = fila.querySelector('.pdt-acum')?.value || '0';
+          obj.porcDia = fila.querySelector('.pdt-porc-dia')?.value || '0.00%';
+          obj.porcAcumulado = fila.querySelector('.pdt-porc-acum')?.value || '0.00%';
+          
+          if (obj.descripcion && obj.descripcion.trim() !== '') {
+            tieneDatos = true;
+          }
+          
+        } else if (idTabla === 'tblAvanceCostos') {
+          const inputs = fila.querySelectorAll('input:not([type="checkbox"]), select');
+          obj.itemCosto = inputs[0]?.value || '';
+          obj.turno = inputs[1]?.value || '';
+          obj.descripcion = inputs[2]?.value || '';
+          obj.cantContractual = inputs[3]?.value || '';
+          obj.unidad = inputs[4]?.value || '';
+          obj.cantAnt = inputs[5]?.value || '0';
+          obj.cantDia = inputs[6]?.value || '0';
+          obj.cantAcumulada = inputs[7]?.value || '0';
+          obj.porcDia = inputs[8]?.value || '';
+          obj.porcAcumulado = inputs[9]?.value || '';
+          
+          if (obj.descripcion && obj.descripcion.trim() !== '') tieneDatos = true;
+          
+        } else if (idTabla === 'tblProximas24h') {
+          const inputs = fila.querySelectorAll('input, select');
+          obj.codigoPDT = inputs[0]?.value || '';
+          obj.turno = inputs[1]?.value || '';
+          obj.actividad = inputs[2]?.value || '';
+          obj.personal = inputs[3]?.value || '';
+          obj.equipos = inputs[4]?.value || '';
+          obj.avanceProy = inputs[5]?.value || '';
+          if (obj.actividad && obj.actividad.trim() !== '') tieneDatos = true;
+          
+        } else if (idTabla === 'tblPersonal') {
+          const inputs = fila.querySelectorAll('input');
+          obj.descripcion = inputs[0]?.value || '';
+          obj.cantidad = inputs[1]?.value || '0';
+          obj.horas = inputs[2]?.value || '0';
+          obj.horasHombre = inputs[3]?.value || '0';
+          if (obj.descripcion && obj.descripcion.trim() !== '') tieneDatos = true;
+          
+        } else if (idTabla === 'tblEquipos') {
+          const inputs = fila.querySelectorAll('input');
+          obj.descripcion = inputs[0]?.value || '';
+          obj.cantidad = inputs[1]?.value || '0';
+          obj.horas = inputs[2]?.value || '0';
+          obj.horasMaquina = inputs[3]?.value || '0';
+          if (obj.descripcion && obj.descripcion.trim() !== '') tieneDatos = true;
+          
+        } else if (idTabla === 'tblPermisos') {
+          const inputs = fila.querySelectorAll('input, select');
+          obj.noPermiso = inputs[0]?.value || '';
+          obj.descripcion = inputs[1]?.value || '';
+          obj.fechaCreacion = inputs[2]?.value || '';
+          obj.fechaVencimiento = inputs[3]?.value || '';
+          obj.estado = inputs[4]?.value || 'Activo';
+          if (obj.descripcion && obj.descripcion.trim() !== '') tieneDatos = true;
+          
+        } else if (idTabla === 'tblImproductividad') {
+          const inputs = fila.querySelectorAll('input, select');
+          obj.tipo = inputs[0]?.value || 'LLUVIAS';
+          obj.horaInicio = inputs[1]?.value || '';
+          obj.horaFin = inputs[2]?.value || '';
+          obj.totalHoras = inputs[3]?.value || '';
+          if (obj.horaInicio || obj.horaFin) tieneDatos = true;
+        }
+        
+        if (tieneDatos) {
+          datos.push(obj);
+        }
+      });
       
-      obj.descripcion = fila.querySelector('.pdt-desc')?.value || '';
-      obj.cantContractual = fila.querySelector('.pdt-cont')?.value || '';
-      obj.unidad = fila.querySelector('.pdt-und')?.value || '';
-      obj.cantAnt = fila.querySelector('.pdt-ant')?.value || '0';
-      obj.cantDia = fila.querySelector('.pdt-dia')?.value || '0';
-      obj.cantAcumulada = fila.querySelector('.pdt-acum')?.value || '0';
-      obj.porcDia = fila.querySelector('.pdt-porc-dia')?.value || '0.00%';
-      obj.porcAcumulado = fila.querySelector('.pdt-porc-acum')?.value || '0.00%';
-      
-      // Verificar si tiene datos relevantes (ignorar filas vacías)
-      if (obj.descripcion && obj.descripcion.trim() !== '') {
-        tieneDatos = true;
-      }
-      
-    } else if (idTabla === 'tblAvanceCostos') {
-      // Para costos, usar selectores específicos también
-      const inputs = fila.querySelectorAll('input:not([type="checkbox"]), select');
-      obj.itemCosto = inputs[0]?.value || '';
-      obj.turno = inputs[1]?.value || '';
-      obj.descripcion = inputs[2]?.value || '';
-      obj.cantContractual = inputs[3]?.value || '';
-      obj.unidad = inputs[4]?.value || '';
-      obj.cantAnt = inputs[5]?.value || '0';
-      obj.cantDia = inputs[6]?.value || '0';
-      obj.cantAcumulada = inputs[7]?.value || '0';
-      obj.porcDia = inputs[8]?.value || '';
-      obj.porcAcumulado = inputs[9]?.value || '';
-      
-      if (obj.descripcion && obj.descripcion.trim() !== '') tieneDatos = true;
-      
-    } else if (idTabla === 'tblProximas24h') {
-      const inputs = fila.querySelectorAll('input, select');
-      obj.codigoPDT = inputs[0]?.value || '';
-      obj.turno = inputs[1]?.value || '';
-      obj.actividad = inputs[2]?.value || '';
-      obj.personal = inputs[3]?.value || '';
-      obj.equipos = inputs[4]?.value || '';
-      obj.avanceProy = inputs[5]?.value || '';
-      if (obj.actividad && obj.actividad.trim() !== '') tieneDatos = true;
-      
-    } else if (idTabla === 'tblPersonal') {
-      const inputs = fila.querySelectorAll('input');
-      obj.descripcion = inputs[0]?.value || '';
-      obj.cantidad = inputs[1]?.value || '0';
-      obj.horas = inputs[2]?.value || '0';
-      obj.horasHombre = inputs[3]?.value || '0';
-      if (obj.descripcion && obj.descripcion.trim() !== '') tieneDatos = true;
-      
-    } else if (idTabla === 'tblEquipos') {
-      const inputs = fila.querySelectorAll('input');
-      obj.descripcion = inputs[0]?.value || '';
-      obj.cantidad = inputs[1]?.value || '0';
-      obj.horas = inputs[2]?.value || '0';
-      obj.horasMaquina = inputs[3]?.value || '0';
-      if (obj.descripcion && obj.descripcion.trim() !== '') tieneDatos = true;
-      
-    } else if (idTabla === 'tblPermisos') {
-      const inputs = fila.querySelectorAll('input, select');
-      obj.noPermiso = inputs[0]?.value || '';
-      obj.descripcion = inputs[1]?.value || '';
-      obj.fechaCreacion = inputs[2]?.value || '';
-      obj.fechaVencimiento = inputs[3]?.value || '';
-      obj.estado = inputs[4]?.value || 'Activo';
-      if (obj.descripcion && obj.descripcion.trim() !== '') tieneDatos = true;
-      
-    } else if (idTabla === 'tblImproductividad') {
-      const inputs = fila.querySelectorAll('input, select');
-      obj.tipo = inputs[0]?.value || 'LLUVIAS';
-      obj.horaInicio = inputs[1]?.value || '';
-      obj.horaFin = inputs[2]?.value || '';
-      obj.totalHoras = inputs[3]?.value || '';
-      if (obj.horaInicio || obj.horaFin) tieneDatos = true;
-    }
-    
-    if (tieneDatos) {
-      datos.push(obj);
-      console.log(`✅ Fila ${filaIndex + 1} de ${idTabla}:`, obj);
-    }
-  });
-  
-  console.log(`📦 Total filas recolectadas de ${idTabla}: ${datos.length}`);
-  return datos;
-};
+      return datos;
+    };
 
     window.recolectarRecursos = function() {
       const filas = document.querySelectorAll('#tblRecursos tbody tr');
@@ -957,7 +927,7 @@ function agregarFilaAOConDatos(cod, desc, cont, und, cantAnt) {
     window.guardarReporte = async function() {
       const fecha = document.getElementById('fecha').value;
       const frente = document.getElementById('frente').value;
-      if (!fecha || !frente) { window.mostrarAlerta('❌ Debe ingresar la fecha y el frente', 'error'); return; }
+      if (!fecha || !frente) { mostrarAlerta('❌ Debe ingresar la fecha y el frente', 'error'); return; }
       
       document.getElementById('loader').classList.add('active');
       try {
@@ -974,22 +944,22 @@ function agregarFilaAOConDatos(cod, desc, cont, und, cantAnt) {
           emailUsuario: currentUser ? currentUser.email : 'anonimo',
           fechaCreacion: reporteActualId ? undefined : new Date().toISOString(),
           fechaModificacion: new Date().toISOString(),
-          avanceObra: window.recolectarTabla('tblAvanceObra', ['codigoPDT','turno','descripcion','cantContractual','unidad','cantAnt','cantDia','cantAcumulada','porcDia','porcAcumulado']),
+          avanceObra: window.recolectarTabla('tblAvanceObra', []),
           recursos: window.recolectarRecursos(),
-          avanceCostos: window.recolectarTabla('tblAvanceCostos', ['itemCosto','turno','descripcion','cantContractual','unidad','cantAnt','cantDia','cantAcumulada','porcDia','porcAcumulado']),
-          proximas24h: window.recolectarTabla('tblProximas24h', ['codigoPDT','turno','actividad','personal','equipos','avanceProy']),
-          personal: window.recolectarTabla('tblPersonal', ['descripcion','cantidad','horas','horasHombre']),
-          equipos: window.recolectarTabla('tblEquipos', ['descripcion','cantidad','horas','horasMaquina']),
-          permisos: window.recolectarTabla('tblPermisos', ['noPermiso','descripcion','fechaCreacion','fechaVencimiento','estado']),
-          improductividad: window.recolectarTabla('tblImproductividad', ['tipo','horaInicio','horaFin','totalHoras'])
+          avanceCostos: window.recolectarTabla('tblAvanceCostos', []),
+          proximas24h: window.recolectarTabla('tblProximas24h', []),
+          personal: window.recolectarTabla('tblPersonal', []),
+          equipos: window.recolectarTabla('tblEquipos', []),
+          permisos: window.recolectarTabla('tblPermisos', []),
+          improductividad: window.recolectarTabla('tblImproductividad', [])
         };
 
         if (reporteActualId) {
           await updateDoc(doc(db, "reportesDiarios", reporteActualId), data);
-          window.mostrarAlerta('✅ Reporte actualizado exitosamente', 'success');
+          mostrarAlerta('✅ Reporte actualizado exitosamente', 'success');
         } else {
           await addDoc(collection(db, "reportesDiarios"), data);
-          window.mostrarAlerta('✅ Reporte guardado exitosamente', 'success');
+          mostrarAlerta('✅ Reporte guardado exitosamente', 'success');
         }
         
         setTimeout(() => { 
@@ -997,7 +967,7 @@ function agregarFilaAOConDatos(cod, desc, cont, und, cantAnt) {
         }, 1500);
 
       } catch (error) {
-        window.mostrarAlerta('❌ Error: ' + error.message, 'error');
+        mostrarAlerta('❌ Error: ' + error.message, 'error');
       } finally {
         document.getElementById('loader').classList.remove('active');
       }
@@ -1043,7 +1013,7 @@ function agregarFilaAOConDatos(cod, desc, cont, und, cantAnt) {
         });
       } catch (error) {
         document.getElementById('loader').classList.remove('active');
-        window.mostrarAlerta('Error: ' + error.message, 'error');
+        mostrarAlerta('Error: ' + error.message, 'error');
       }
     };
 
@@ -1052,7 +1022,7 @@ function agregarFilaAOConDatos(cod, desc, cont, und, cantAnt) {
       document.getElementById('loader').classList.add('active');
       try {
         const docSnap = await getDoc(doc(db, "reportesDiarios", id));
-        if (!docSnap.exists()) { window.mostrarAlerta('Reporte no encontrado', 'error'); return; }
+        if (!docSnap.exists()) { mostrarAlerta('Reporte no encontrado', 'error'); return; }
         
         const r = docSnap.data();
         reporteActualId = id;
@@ -1077,166 +1047,99 @@ function agregarFilaAOConDatos(cod, desc, cont, und, cantAnt) {
         cargarTablaDesdeDatos('tblImproductividad', r.improductividad || [], window.agregarFilaImp, false);
         
         document.getElementById('loader').classList.remove('active');
-        window.mostrarAlerta('✅ Reporte cargado para edición', 'success');
+        mostrarAlerta('✅ Reporte cargado para edición', 'success');
         window.scrollTo({ top: 0, behavior: 'smooth' });
       } catch (error) {
         document.getElementById('loader').classList.remove('active');
-        window.mostrarAlerta('Error: ' + error.message, 'error');
+        mostrarAlerta('Error: ' + error.message, 'error');
       }
     };
 
-    // ============================================
-// FUNCIÓN CORREGIDA: Cargar tabla desde datos
-// ============================================
-function cargarTablaDesdeDatos(idTabla, datos, funcionAgregar, esAvanceObra) {
-  const tbody = document.querySelector('#' + idTabla + ' tbody');
-  tbody.innerHTML = '';
-  
-  console.log(`🔄 Cargando ${datos.length} registros en ${idTabla}`);
-  
-  datos.forEach((rowData, index) => {
-    funcionAgregar(rowData.finalizada || false);
-    const ultimaFila = tbody.lastElementChild;
-    
-    if (esAvanceObra) {
-      // Manejar checkbox de finalizada
-      const chkFinalizada = ultimaFila.querySelector('.chk-finalizada');
-      if (chkFinalizada) {
-        chkFinalizada.checked = rowData.finalizada || false;
-      }
+    function cargarTablaDesdeDatos(idTabla, datos, funcionAgregar, esAvanceObra) {
+      const tbody = document.querySelector('#' + idTabla + ' tbody');
+      tbody.innerHTML = '';
       
-      // Mapeo EXPLÍCITO por clases CSS
-      const campos = {
-        '.pdt-cod': rowData.codigoPDT || 'NA',
-        '.pdt-desc': rowData.descripcion || '',
-         '.pdt-cont': rowData.cantidadPlan || rowData.cantContractual || '', // Prioriza cantidadPlan,
-        '.pdt-und': rowData.unidad || '',
-        '.pdt-ant': rowData.cantAnt || 0,
-        '.pdt-dia': rowData.cantDia || 0,
-        '.pdt-acum': rowData.cantAcumulada || 0,
-        '.pdt-porc-dia': rowData.porcDia || '0.00%',
-        '.pdt-porc-acum': rowData.porcAcumulado || '0.00%'
-      };
-      
-      Object.entries(campos).forEach(([selector, valor]) => {
-        const input = ultimaFila.querySelector(selector);
-        if (input) {
-          input.value = valor;
-          console.log(`  📝 ${selector} = ${valor}`);
-        }
-      });
-      
-      // Manejar select de turno
-      const selectTurno = ultimaFila.querySelector('select');
-      if (selectTurno && rowData.turno) {
-        selectTurno.value = rowData.turno;
-        console.log(`  🔄 Turno = ${rowData.turno}`);
-      }
-      
-      // Recalcular acumulados
-      const cantDiaInput = ultimaFila.querySelector('.pdt-dia');
-      if (cantDiaInput && parseFloat(cantDiaInput.value) > 0) {
-        window.calcularAcumulado(cantDiaInput);
-      }
-      
-    } else if (idTabla === 'tblAvanceCostos') {
-      const inputs = ultimaFila.querySelectorAll('input:not([type="checkbox"]), select');
-      if (inputs[0]) inputs[0].value = rowData.itemCosto || '';
-      if (inputs[1]) inputs[1].value = rowData.turno || '';
-      if (inputs[2]) inputs[2].value = rowData.descripcion || '';
-      if (inputs[3]) inputs[3].value = rowData.cantContractual || '';
-      if (inputs[4]) inputs[4].value = rowData.unidad || '';
-      if (inputs[5]) inputs[5].value = rowData.cantAnt || 0;
-      if (inputs[6]) inputs[6].value = rowData.cantDia || 0;
-      if (inputs[7]) inputs[7].value = rowData.cantAcumulada || 0;
-      if (inputs[8]) inputs[8].value = rowData.porcDia || '';
-      if (inputs[9]) inputs[9].value = rowData.porcAcumulado || '';
-      
-      const cantDiaInput = ultimaFila.querySelector('.ac-dia');
-      if (cantDiaInput && parseFloat(cantDiaInput.value) > 0) {
-        window.calcularAcCostos(cantDiaInput);
-      }
-      
-    } else if (idTabla === 'tblProximas24h') {
-      const inputs = ultimaFila.querySelectorAll('input, select');
-      if (inputs[0]) inputs[0].value = rowData.codigoPDT || '';
-      if (inputs[1]) inputs[1].value = rowData.turno || '';
-      if (inputs[2]) inputs[2].value = rowData.actividad || '';
-      if (inputs[3]) inputs[3].value = rowData.personal || '';
-      if (inputs[4]) inputs[4].value = rowData.equipos || '';
-      if (inputs[5]) inputs[5].value = rowData.avanceProy || '';
-      
-    } else if (idTabla === 'tblPermisos') {
-      const inputs = ultimaFila.querySelectorAll('input, select');
-      if (inputs[0]) inputs[0].value = rowData.noPermiso || '';
-      if (inputs[1]) inputs[1].value = rowData.descripcion || '';
-      if (inputs[2]) inputs[2].value = rowData.fechaCreacion || '';
-      if (inputs[3]) inputs[3].value = rowData.fechaVencimiento || '';
-      if (inputs[4]) inputs[4].value = rowData.estado || 'Activo';
-      
-    } else if (idTabla === 'tblImproductividad') {
-      const inputs = ultimaFila.querySelectorAll('input, select');
-      if (inputs[0]) inputs[0].value = rowData.tipo || 'LLUVIAS';
-      if (inputs[1]) inputs[1].value = rowData.horaInicio || '';
-      if (inputs[2]) inputs[2].value = rowData.horaFin || '';
-      if (inputs[3]) inputs[3].value = rowData.totalHoras || '';
-    }
-  });
-}
-
-// ============================================
-// FUNCIÓN CORREGIDA: Recolectar datos de tabla
-// ============================================
-window.recolectarTabla = function(idTabla, campos) {
-  const filas = document.querySelectorAll('#' + idTabla + ' tbody tr');
-  const datos = [];
-  
-  filas.forEach((fila, filaIndex) => {
-    const obj = {};
-    let tieneDatos = false;
-    
-    if (idTabla === 'tblAvanceObra') {
-      // Mapeo EXPLÍCITO para Avance de Obra
-      obj.finalizada = fila.querySelector('.chk-finalizada')?.checked || false;
-      obj.codigoPDT = fila.querySelector('.pdt-cod')?.value || '';
-      
-      const selectTurno = fila.querySelector('select');
-      obj.turno = selectTurno ? selectTurno.value : '';
-      
-      obj.descripcion = fila.querySelector('.pdt-desc')?.value || '';
-      obj.cantidadPlan = fila.querySelector('.pdt-cont')?.value || ''; // Guardar como cantidadPlan
-      obj.cantContractual = fila.querySelector('.pdt-cont')?.value || '';
-      obj.unidad = fila.querySelector('.pdt-und')?.value || '';
-      obj.cantAnt = fila.querySelector('.pdt-ant')?.value || '0';
-      obj.cantDia = fila.querySelector('.pdt-dia')?.value || '0';
-      obj.cantAcumulada = fila.querySelector('.pdt-acum')?.value || '0';
-      obj.porcDia = fila.querySelector('.pdt-porc-dia')?.value || '0.00%';
-      obj.porcAcumulado = fila.querySelector('.pdt-porc-acum')?.value || '0.00%';
-      
-      // Verificar si tiene datos relevantes
-      if (obj.codigoPDT && obj.codigoPDT !== 'NA' || obj.descripcion) {
-        tieneDatos = true;
-      }
-      
-    } else {
-      // Para otras tablas, usar mapeo por índice
-      const inputs = fila.querySelectorAll('input:not([type="checkbox"]), select');
-      campos.forEach((campo, idx) => {
-        if (idx < inputs.length) {
-          obj[campo] = inputs[idx].value;
-          if (inputs[idx].value && inputs[idx].value.trim() !== '') tieneDatos = true;
+      datos.forEach(rowData => {
+        funcionAgregar(rowData.finalizada || false);
+        const ultimaFila = tbody.lastElementChild;
+        
+        if (esAvanceObra) {
+          const chkFinalizada = ultimaFila.querySelector('.chk-finalizada');
+          if (chkFinalizada) {
+            chkFinalizada.checked = rowData.finalizada || false;
+          }
+          
+          const campos = {
+            '.pdt-cod': rowData.codigoPDT || 'NA',
+            '.pdt-desc': rowData.descripcion || '',
+            '.pdt-cont': rowData.cantidadPlan || rowData.cantContractual || '',
+            '.pdt-und': rowData.unidad || '',
+            '.pdt-ant': rowData.cantAnt || 0,
+            '.pdt-dia': rowData.cantDia || 0,
+            '.pdt-acum': rowData.cantAcumulada || 0,
+            '.pdt-porc-dia': rowData.porcDia || '0.00%',
+            '.pdt-porc-acum': rowData.porcAcumulado || '0.00%'
+          };
+          
+          Object.entries(campos).forEach(([selector, valor]) => {
+            const input = ultimaFila.querySelector(selector);
+            if (input) input.value = valor;
+          });
+          
+          const selectTurno = ultimaFila.querySelector('select');
+          if (selectTurno && rowData.turno) {
+            selectTurno.value = rowData.turno;
+          }
+          
+          const cantDiaInput = ultimaFila.querySelector('.pdt-dia');
+          if (cantDiaInput && parseFloat(cantDiaInput.value) > 0) {
+            window.calcularAcumulado(cantDiaInput);
+          }
+          
+        } else if (idTabla === 'tblAvanceCostos') {
+          const inputs = ultimaFila.querySelectorAll('input:not([type="checkbox"]), select');
+          if (inputs[0]) inputs[0].value = rowData.itemCosto || '';
+          if (inputs[1]) inputs[1].value = rowData.turno || '';
+          if (inputs[2]) inputs[2].value = rowData.descripcion || '';
+          if (inputs[3]) inputs[3].value = rowData.cantContractual || '';
+          if (inputs[4]) inputs[4].value = rowData.unidad || '';
+          if (inputs[5]) inputs[5].value = rowData.cantAnt || 0;
+          if (inputs[6]) inputs[6].value = rowData.cantDia || 0;
+          if (inputs[7]) inputs[7].value = rowData.cantAcumulada || 0;
+          if (inputs[8]) inputs[8].value = rowData.porcDia || '';
+          if (inputs[9]) inputs[9].value = rowData.porcAcumulado || '';
+          
+          const cantDiaInput = ultimaFila.querySelector('.ac-dia');
+          if (cantDiaInput && parseFloat(cantDiaInput.value) > 0) {
+            window.calcularAcCostos(cantDiaInput);
+          }
+          
+        } else if (idTabla === 'tblProximas24h') {
+          const inputs = ultimaFila.querySelectorAll('input, select');
+          if (inputs[0]) inputs[0].value = rowData.codigoPDT || '';
+          if (inputs[1]) inputs[1].value = rowData.turno || '';
+          if (inputs[2]) inputs[2].value = rowData.actividad || '';
+          if (inputs[3]) inputs[3].value = rowData.personal || '';
+          if (inputs[4]) inputs[4].value = rowData.equipos || '';
+          if (inputs[5]) inputs[5].value = rowData.avanceProy || '';
+          
+        } else if (idTabla === 'tblPermisos') {
+          const inputs = ultimaFila.querySelectorAll('input, select');
+          if (inputs[0]) inputs[0].value = rowData.noPermiso || '';
+          if (inputs[1]) inputs[1].value = rowData.descripcion || '';
+          if (inputs[2]) inputs[2].value = rowData.fechaCreacion || '';
+          if (inputs[3]) inputs[3].value = rowData.fechaVencimiento || '';
+          if (inputs[4]) inputs[4].value = rowData.estado || 'Activo';
+          
+        } else if (idTabla === 'tblImproductividad') {
+          const inputs = ultimaFila.querySelectorAll('input, select');
+          if (inputs[0]) inputs[0].value = rowData.tipo || 'LLUVIAS';
+          if (inputs[1]) inputs[1].value = rowData.horaInicio || '';
+          if (inputs[2]) inputs[2].value = rowData.horaFin || '';
+          if (inputs[3]) inputs[3].value = rowData.totalHoras || '';
         }
       });
     }
-    
-    if (tieneDatos) {
-      datos.push(obj);
-      console.log(`📊 Fila ${filaIndex + 1} de ${idTabla}:`, obj);
-    }
-  });
-  
-  return datos;
-};
 
     function cargarRecursosDesdeDatos(datos) {
       const tbody = document.querySelector('#tblRecursos tbody');
@@ -1298,7 +1201,7 @@ window.recolectarTabla = function(idTabla, campos) {
       document.getElementById('observaciones').value = '';
       document.getElementById('infoReporteAnterior').style.display = 'none';
       window.inicializarTablas();
-      window.mostrarAlerta('Formulario limpiado', 'info');
+      mostrarAlerta('Formulario limpiado', 'info');
     };
 
     window.mostrarAlerta = function(msg, tipo) {
