@@ -309,24 +309,25 @@
           throw new Error('El archivo Excel está vacío o no tiene el formato correcto');
         }
 
-        // Procesar cada fila de la Vista Planeación
-        const actividades = [];
-        for (const row of jsonData) {
-          const actividad = {
-            activityId: row['Activity ID'] || row['Activity Id'] || '',
-            activityName: row['Activity Name'] || row['Activity name'] || '',
-            originalDuration: row['Original Duration'] || 0,
-            budgetedLaborUnits: row['Budgeted Labor Units'] || 0,
-            startDate: row['Start'] ? formatearFecha(row['Start']) : '',
-            finishDate: row['Finish'] ? formatearFecha(row['Finish']) : '',
-            calendar: row['Calendar'] || '',
-            predecessors: row['Predecessors'] || '',
-            successors: row['Succesors'] || row['Successors'] || '',
-            totalFloat: row['Total Float'] || 0,
-            estadoActividad: row['Estado actividad'] || row['Estado Actividad'] || ''
-          };
-          actividades.push(actividad);
-        }
+       // Procesar cada fila de la Vista Planeación
+const actividades = [];
+for (const row of jsonData) {
+  const actividad = {
+    activityId: row['Activity ID'] || row['Activity Id'] || '',
+    activityName: row['Activity Name'] || row['Activity name'] || '',
+    originalDuration: row['Original Duration'] || 0,
+    budgetedLaborUnits: row['Budgeted Labor Units'] || 0,
+    cantidadPlan: row['Cantidad Plan'] || row['cantidad plan'] || row['CANTIDAD PLAN'] || 0, // NUEVA COLUMNA
+    startDate: row['Start'] ? formatearFecha(row['Start']) : '',
+    finishDate: row['Finish'] ? formatearFecha(row['Finish']) : '',
+    calendar: row['Calendar'] || '',
+    predecessors: row['Predecessors'] || '',
+    successors: row['Succesors'] || row['Successors'] || '',
+    totalFloat: row['Total Float'] || 0,
+    estadoActividad: row['Estado actividad'] || row['Estado Actividad'] || ''
+  };
+  actividades.push(actividad);
+}
 
         // Guardar el PDT Línea Base en Firestore
         await addDoc(collection(db, "pdts"), {

@@ -497,13 +497,12 @@ window.cargarDatosInteligentes = async function() {
       const cantAnt = acumulados[codigo] || 0; // Si no hay reporte previo, es 0
       
       agregarFilaAOConDatos(
-        codigo,
-        act.activityName || '',
-        act.budgetedLaborUnits || 0, // Usamos Budgeted Units como Cant. Cont. inicial
-        'UND', // Unidad por defecto, editable
-        cantAnt
-      );
-    });
+  codigo,
+  act.activityName || '',
+  act.cantidadPlan || 0, // Usamos Cantidad Plan del Excel
+  'UND', // Unidad por defecto, editable
+  cantAnt
+);
 
     // Mensaje de éxito
     mostrarAlerta(`✅ Se cargaron ${actividadesHoy.length} actividades desde el PDT`, 'success');
@@ -1110,7 +1109,7 @@ function cargarTablaDesdeDatos(idTabla, datos, funcionAgregar, esAvanceObra) {
       const campos = {
         '.pdt-cod': rowData.codigoPDT || 'NA',
         '.pdt-desc': rowData.descripcion || '',
-        '.pdt-cont': rowData.cantContractual || '',
+         '.pdt-cont': rowData.cantidadPlan || rowData.cantContractual || '', // Prioriza cantidadPlan,
         '.pdt-und': rowData.unidad || '',
         '.pdt-ant': rowData.cantAnt || 0,
         '.pdt-dia': rowData.cantDia || 0,
@@ -1205,6 +1204,7 @@ window.recolectarTabla = function(idTabla, campos) {
       obj.turno = selectTurno ? selectTurno.value : '';
       
       obj.descripcion = fila.querySelector('.pdt-desc')?.value || '';
+      obj.cantidadPlan = fila.querySelector('.pdt-cont')?.value || ''; // Guardar como cantidadPlan
       obj.cantContractual = fila.querySelector('.pdt-cont')?.value || '';
       obj.unidad = fila.querySelector('.pdt-und')?.value || '';
       obj.cantAnt = fila.querySelector('.pdt-ant')?.value || '0';
