@@ -360,7 +360,7 @@
         <div class="mb-4 shrink-0">
           <input type="text" id="buscarPDT" placeholder="🔍 Buscar por código o descripción..." 
                  class="w-full border rounded px-3 py-2 focus:outline-none focus:border-blue-600"
-                 oninput="window.filtrarActividadesPDT()">
+                 >
         </div>
         <div class="overflow-y-auto flex-1 border rounded">
           <table class="w-full text-sm">
@@ -712,13 +712,36 @@
     }
 
     window.filtrarActividadesPDT = function() {
-      const texto = document.getElementById('buscarPDT').value.toLowerCase();
-      document.querySelectorAll('#listaActividadesPDT tr').forEach(fila => {
-        const codigo = fila.querySelector('td:nth-child(2)')?.textContent.toLowerCase() || '';
-        const desc = fila.querySelector('td:nth-child(3)')?.textContent.toLowerCase() || '';
-        fila.style.display = (codigo.includes(texto) || desc.includes(texto)) ? '' : 'none';
-      });
-    };
+  const input = document.getElementById('buscarPDT');
+  if (!input) {
+    console.error('❌ No se encontró el input #buscarPDT');
+    return;
+  }
+  
+  const texto = input.value.toLowerCase().trim();
+  console.log('🔍 Buscando texto:', texto);
+  
+  const filas = document.querySelectorAll('#listaActividadesPDT tr');
+  console.log(`📋 Total filas encontradas: ${filas.length}`);
+  
+  let visibles = 0;
+  filas.forEach((fila) => {
+    const celdas = fila.querySelectorAll('td');
+    if (celdas.length < 3) return; // Saltar filas sin datos
+    
+    const codigo = (celdas[1]?.textContent || '').toLowerCase();
+    const descripcion = (celdas[2]?.textContent || '').toLowerCase();
+    
+    if (texto === '' || codigo.includes(texto) || descripcion.includes(texto)) {
+      fila.style.display = '';
+      visibles++;
+    } else {
+      fila.style.display = 'none';
+    }
+  });
+  
+  console.log(`✅ Filas visibles: ${visibles}`);
+};
 
     window.cerrarModalPDT = function() {
       document.getElementById('modalPDT').classList.add('hidden');
@@ -1192,6 +1215,35 @@
       setTimeout(() => { box.style.display = 'none'; }, 5000);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     };
+// ============================================
+// CONEXIÓN DIRECTA DEL BUSCADOR DEL MODAL PDT
+// ============================================
+document.addEventListener('DOMContentLoaded', function() {
+  const buscarInput = document.getElementById('buscarPDT');
+  if (buscarInput) {
+    // Conectar el evento input directamente
+    buscarInput.addEventListener('input', function(e) {
+      console.log('⌨️ Evento input detectado, valor:', e.target.value);
+      if (typeof window.filtrarActividadesPDT === 'function') {
+        window.filtrarActividadesPDT();
+      } else {
+        console.error('❌ La función filtrarActividadesPDT no está definida');
+      }
+    });
+    
+    // También conectar el evento keyup como respaldo
+    buscarInput.addEventListener('keyup', function(e) {
+      console.log('⌨️ Evento keyup detectado, tecla:', e.key);
+      if (typeof window.filtrarActividadesPDT === 'function') {
+        window.filtrarActividadesPDT();
+      }
+    });
+    
+    console.log('✅ Buscador del modal PDT conectado correctamente');
+  } else {
+    console.warn('⚠️ No se encontró el input #buscarPDT en el DOM');
+  }
+});
   </script>
 </body>
 </html>
